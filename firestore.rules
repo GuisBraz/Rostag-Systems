@@ -1,0 +1,66 @@
+rules_version = '2';
+
+// Rostag Systems — quem vê e quem mexe em quê.
+// Níveis: gerente (vê tudo) · lider (a própria equipe) · analista (a equipe do seu líder)
+//         · pendente (conta nova, sem acesso até a gerência liberar).
+// Equipe = id do líder. Tarefas guardam `equipeId`.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function logado() { return request.auth != null; }
+    function eu() { return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data; }
+    function nivel() { return eu().nivel; }
+    function ativo() { return logado() && nivel() in ['gerente', 'lider', 'analista']; }
+    function gerente() { return logado() && nivel() == 'gerente'; }
+    function minhaEquipe() {
+      return nivel() == 'lider' ? request.auth.uid : (nivel() == 'analista' ? eu().liderId : null);
+    }
+    function daMinhaEquipe(equipeId) { return ativo() && equipeId != null && equipeId == minhaEquipe(); }
+    function mudou() { return request.resource.data.diff(resource.data).affectedKeys(); }
+
+    // ---------------------------------------------------------------- pessoas
+    match /usuarios/{uid} {
+      // Todos os ativos veem os nomes (para responsáveis e comentários); cada um vê o próprio perfil.
+      allow read: if logado() && (request.auth.uid == uid || ativo());
+      // Conta nova só pode se criar como "pendente", sem líder.
+      allow create: if logado() && request.auth.uid == uid
+        && request.resource.data.nivel == 'pendente'
+        && request.resource.data.liderId == null;
+      // A gerência define nível e líder; cada um pode mudar só o próprio nome.
+      allow update: if gerente()
+        || (logado() && request.auth.uid == uid && mudou().hasOnly(['nome']));
+      allow delete: if gerente() && request.auth.uid != uid;
+    }
+
+    // --------------------------------------------------------------- projetos
+    match /projetos/{id} {
+      allow read: if ativo();
+      allow create: if ativo() && nivel() in ['gerente', 'lider']
+        && request.resource.data.criadoPor == request.auth.uid
+        && request.resource.data.nome is string && request.resource.data.nome.size() > 0;
+      allow update: if ativo() && nivel() in ['gerente', 'lider']
+        && !mudou().hasAny(['criadoPor', 'criadoEm']);
+      allow delete: if gerente();
+    }
+
+    // ---------------------------------------------------------------- tarefas
+    match /tarefas/{id} {
+      allow read: if gerente() || daMinhaEquipe(resource.data.equipeId);
+
+      allow create: if (gerente() || daMinhaEquipe(request.resource.data.equipeId))
+        && request.resource.data.criadoPor == request.auth.uid
+        && request.resource.data.titulo is string && request.resource.data.titulo.size() > 0
+        && request.resource.data.responsavelId is string
+        && request.resource.data.status in ['afazer', 'andamento', 'concluida'];
+
+      // Dentro da equipe todos editam, dão baixa, comentam e mexem no checklist;
+      // só a gerência pode mudar a tarefa de equipe. Ninguém reescreve autoria.
+      allow update: if (gerente() || (daMinhaEquipe(resource.data.equipeId) && !mudou().hasAny(['equipeId'])))
+        && !mudou().hasAny(['criadoPor', 'criadoEm'])
+        && request.resource.data.status in ['afazer', 'andamento', 'concluida'];
+
+      allow delete: if gerente() || (nivel() == 'lider' && daMinhaEquipe(resource.data.equipeId));
+    }
+  }
+}
