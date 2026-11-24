@@ -82,3 +82,40 @@ test('indicadores do painel', () => {
   assert.equal(i.concluidasSemana, 1);
   assert.deepEqual(i.porStatus, { afazer: 1, andamento: 1, concluida: 2 });
 });
+
+import { ehAdm, ehGerente, niveisQuePodeDar, podeEditarPessoa, pessoasVisiveis, conviteValido } from '../js/dominio/regras.js';
+
+const adm = { id: 'adm', nivel: 'adm' };
+
+test('ADM: acima da gerência, vê tudo e cria gerentes', () => {
+  assert.ok(ehAdm(adm) && ehGerente(adm));
+  assert.ok(podeVerTarefa(adm, tA) && podeVerTarefa(adm, tB));
+  assert.ok(podeCriarProjeto(adm));
+  assert.ok(niveisQuePodeDar(adm).includes('gerente'));
+  assert.ok(!niveisQuePodeDar(ger).includes('gerente'));
+  assert.deepEqual(niveisQuePodeDar(carla), []);
+});
+
+test('quem pode mudar o nível de quem', () => {
+  assert.ok(podeEditarPessoa(adm, ger));
+  assert.ok(podeEditarPessoa(ger, carla));
+  assert.ok(!podeEditarPessoa(ger, { id: 'g2', nivel: 'gerente' }));
+  assert.ok(!podeEditarPessoa(ger, adm));
+  assert.ok(!podeEditarPessoa(ger, ger));
+  assert.ok(!podeEditarPessoa(ana, carla));
+});
+
+test('ADM fica escondido das listas para os outros', () => {
+  const todos = [adm, ger, ana, carla];
+  assert.ok(!pessoasVisiveis(ger, todos).some((u) => u.nivel === 'adm'));
+  assert.ok(!pessoasVisiveis(carla, todos).some((u) => u.nivel === 'adm'));
+  assert.equal(pessoasVisiveis(adm, todos).length, 4);
+});
+
+test('convite: vale até vencer e só uma vez', () => {
+  const agora = 1000;
+  assert.ok(conviteValido({ usado: false, expiraEm: 2000 }, agora));
+  assert.ok(!conviteValido({ usado: true, expiraEm: 2000 }, agora));
+  assert.ok(!conviteValido({ usado: false, expiraEm: 500 }, agora));
+  assert.ok(!conviteValido(null, agora));
+});

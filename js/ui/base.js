@@ -1,5 +1,7 @@
 /* Utilitários de interface: escape de HTML, modal, aviso (toast) e avatar. */
 
+import { t } from '../i18n.js';
+
 export function esc(v) {
   return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -29,7 +31,7 @@ export function aviso(texto, tipo = 'ok') {
 
 export function erro(e) {
   console.error(e);
-  const msg = (e && e.code === 'permission-denied') ? 'Você não tem permissão para isso.' : (e && e.message) || 'Algo deu errado.';
+  const msg = (e && e.code === 'permission-denied') ? t('Você não tem permissão para isso.') : t((e && e.message) || 'Algo deu errado.');
   aviso(msg, 'erro');
 }
 
@@ -88,3 +90,14 @@ export const modalAberto = () => !!modalAtual;
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && modalAtual) fecharModal(); });
 
 export function confirmar(texto) { return window.confirm(texto); }
+
+/** Copia texto para a área de transferência (com plano B para navegadores antigos). */
+export async function copiar(texto) {
+  try { await navigator.clipboard.writeText(texto); return true; } catch {
+    const ta = document.createElement('textarea');
+    ta.value = texto; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.append(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch { ok = false; }
+    ta.remove(); return ok;
+  }
+}

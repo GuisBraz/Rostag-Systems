@@ -2,13 +2,13 @@
    Mesma interface da fonte Firebase (firebase.js). */
 
 import { hojeISO } from '../dominio/datas.js';
-import { tarefasVisiveis } from '../dominio/regras.js';
+import { tarefasVisiveis, VALIDADE_CONVITE_MS } from '../dominio/regras.js';
 
 const CHAVE = 'rostag-systems-demo-v1';
 const CHAVE_SESSAO = 'rostag-systems-demo-sessao';
 
 let banco = null;
-const ouvintes = { sessao: new Set(), usuarios: new Set(), projetos: new Set(), tarefas: new Set() };
+const ouvintes = { sessao: new Set(), usuarios: new Set(), projetos: new Set(), tarefas: new Set(), convites: new Set() };
 
 const id = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 const copia = (x) => JSON.parse(JSON.stringify(x));
@@ -39,7 +39,7 @@ function semente() {
     return {
       id: id(), descricao: '', prioridade: 'media', checklist: [], comentarios: [],
       criadoEm, atualizadoEm: criadoEm, concluidaEm: null,
-      historico: [{ em: criadoEm, por: o.criadoPor, texto: 'criou a tarefa' }],
+      historico: [{ em: criadoEm, por: o.criadoPor, acao: 'criou' }],
       ...o
     };
   };
@@ -57,7 +57,7 @@ function semente() {
     t({ titulo: 'Plano de ação das paradas', projetoId: 'p-linha', equipeId: 'u-bruno', responsavelId: 'u-bruno', status: 'afazer', prioridade: 'baixa', prazo: diaRel(10), criadoPor: 'u-bruno' }),
     t({ titulo: 'Atualizar registros de calibração', projetoId: 'p-iso', equipeId: 'u-bruno', responsavelId: 'u-elisa', status: 'concluida', prazo: diaRel(0), criadoPor: 'u-gui', concluidaEm: msRel(0, 8) })
   ];
-  return { usuarios: u, projetos: p, tarefas };
+  return { usuarios: u, projetos: p, tarefas, convites: [] };
 }
 
 function carregar() {
@@ -65,6 +65,7 @@ function carregar() {
   const bruto = ler(CHAVE);
   try { banco = bruto ? JSON.parse(bruto) : null; } catch { banco = null; }
   if (!banco || !Array.isArray(banco.tarefas)) { banco = semente(); salvar(); }
+  if (!Array.isArray(banco.convites)) banco.convites = [];
 }
 function salvar() { gravar(CHAVE, JSON.stringify(banco)); }
 
@@ -79,6 +80,7 @@ function emitir() {
   ouvintes.usuarios.forEach((cb) => cb(copia(banco.usuarios)));
   ouvintes.projetos.forEach((cb) => cb(copia(banco.projetos)));
   ouvintes.tarefas.forEach((cb) => cb(copia(tarefasVisiveis(eu, banco.tarefas))));
+  ouvintes.convites.forEach((cb) => cb(copia(banco.convites.filter((c) => !c.usado))));
 }
 
 function assinar(tipo, cb, valor) {
@@ -114,7 +116,7 @@ export const fonteLocal = {
     const agora = Date.now();
     const nova = { id: id(), checklist: [], comentarios: [], concluidaEm: null, ...dados,
       criadoPor: autorId, criadoEm: agora, atualizadoEm: agora,
-      historico: [{ em: agora, por: autorId, texto: 'criou a tarefa' }] };
+      historico: [{ em: agora, por: autorId, acao: 'criou' }] };
     banco.tarefas.push(nova); salvar(); emitir();
     return nova.id;
   },
@@ -122,7 +124,7 @@ export const fonteLocal = {
     const t = tarefa(idT);
     const agora = Date.now();
     Object.assign(t, patch, { atualizadoEm: agora });
-    eventos.forEach((texto) => t.historico.push({ em: agora, por: autorId, texto }));
+    eventos.forEach((ev) => t.historico.push({ em: agora, por: autorId, ...ev }));
     salvar(); emitir();
   },
   async comentar(idT, texto, autorId) {
@@ -133,6 +135,15 @@ export const fonteLocal = {
     salvar(); emitir();
   },
   async excluirTarefa(idT) { banco.tarefas = banco.tarefas.filter((t) => t.id !== idT); salvar(); emitir(); },
+  async lerConvite(codigo) { return copia(banco.convites.find((c) => c.id === codigo) || null); },
+  observarConvites(cb) { return assinar('convites', cb, () => banco.convites.filter((c) => !c.usado)); },
+  async criarConvite(dados, autorId) {
+    const agora = Date.now();
+    const c = { id: id() + id(), ...dados, criadoPor: autorId, criadoEm: agora, expiraEm: agora + VALIDADE_CONVITE_MS, usado: false };
+    banco.convites.push(c); salvar(); emitir();
+    return c.id;
+  },
+  async cancelarConvite(codigo) { banco.convites = banco.convites.filter((c) => c.id !== codigo); salvar(); emitir(); },
   async atualizarUsuario(idU, patch) { Object.assign(banco.usuarios.find((u) => u.id === idU), patch); salvar(); emitir(); },
 
   // Só no modo demo

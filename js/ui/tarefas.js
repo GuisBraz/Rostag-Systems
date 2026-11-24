@@ -6,14 +6,37 @@ import {
   membrosDaEquipe, podeVerTarefa
 } from '../dominio/regras.js';
 import { fmtData, fmtDataHora, hojeISO } from '../dominio/datas.js';
+import { t as T } from '../i18n.js';
 import { esc, avatar, abrirModal, fecharModal, aviso, erro, confirmar } from './base.js';
+
+/* ------------------------------------------------------------------ histórico */
+
+/** Texto de um evento do histórico, no idioma atual. Eventos antigos guardavam `texto` pronto. */
+export function textoHistorico(h) {
+  const v = h.valor;
+  switch (h.acao) {
+    case 'criou': return T('criou a tarefa');
+    case 'status': return T('mudou o status para “{v}”', { v: T(nomeStatus(v)) });
+    case 'titulo': return T('renomeou para “{v}”', { v });
+    case 'descricao': return T('editou a descrição');
+    case 'responsavel': return T('passou a tarefa para {v}', { v: nomeDe(v) });
+    case 'prazo': return v ? T('mudou o prazo para {v}', { v: fmtData(v) }) : T('removeu o prazo');
+    case 'prioridade': return T('mudou a prioridade para {v}', { v: T(nomePrioridade(v)) });
+    case 'projeto': return v ? T('moveu para o projeto “{v}”', { v: (projetoDe(v) || {}).nome || '—' }) : T('tirou a tarefa do projeto');
+    case 'check_add': return T('adicionou “{v}” ao checklist', { v });
+    case 'check_rem': return T('removeu o item “{v}” do checklist', { v });
+    case 'check_on': return T('marcou “{v}”', { v });
+    case 'check_off': return T('desmarcou “{v}”', { v });
+    default: return T(h.texto || '');
+  }
+}
 
 /* ------------------------------------------------------------------ cartão */
 
 function prazoHtml(t) {
   if (!t.prazo) return '';
   const classe = atrasada(t) ? 'atrasada' : (t.prazo === hojeISO() && t.status !== 'concluida' ? 'hoje' : '');
-  return `<span class="prazo ${classe}" title="Prazo">${atrasada(t) ? '! ' : ''}${esc(fmtData(t.prazo))}</span>`;
+  return `<span class="prazo ${classe}" title="${esc(T('Prazo'))}">${atrasada(t) ? '! ' : ''}${esc(fmtData(t.prazo))}</span>`;
 }
 
 export function cartaoTarefa(t, { arrastavel = false } = {}) {
@@ -28,9 +51,9 @@ export function cartaoTarefa(t, { arrastavel = false } = {}) {
       <div class="ct-rodape">
         ${avatar(nomeDe(t.responsavelId))}
         ${prazoHtml(t)}
-        ${total ? `<span class="ct-check" title="Checklist">☑ ${feitos}/${total}</span>` : ''}
-        ${(t.comentarios || []).length ? `<span class="ct-com" title="Comentários">💬 ${t.comentarios.length}</span>` : ''}
-        ${t.prioridade === 'alta' ? '<span class="ct-prio" title="Prioridade alta">Alta</span>' : ''}
+        ${total ? `<span class="ct-check" title="${esc(T('Checklist'))}">☑ ${feitos}/${total}</span>` : ''}
+        ${(t.comentarios || []).length ? `<span class="ct-com" title="${esc(T('Comentários'))}">💬 ${t.comentarios.length}</span>` : ''}
+        ${t.prioridade === 'alta' ? `<span class="ct-prio" title="${esc(T('Prioridade alta'))}">${esc(T('Alta'))}</span>` : ''}
       </div>
     </article>`;
 }
@@ -54,21 +77,21 @@ export function renderMinhas() {
 
   return `
     <header class="titulo-pagina">
-      <h1>Minhas tarefas</h1>
-      <p>${abertas.length} em aberto · ${feitas.length} concluída${feitas.length === 1 ? '' : 's'}</p>
-      ${ehGerente(eu) ? '' : '<button class="botao" data-nova-tarefa>+ Nova tarefa</button>'}
+      <h1>${esc(T('Minhas tarefas'))}</h1>
+      <p>${esc(T('{a} em aberto · {c} concluída(s)', { a: abertas.length, c: feitas.length }))}</p>
+      ${ehGerente(eu) ? '' : `<button class="botao" data-nova-tarefa>${esc(T('+ Nova tarefa'))}</button>`}
     </header>
-    ${ehGerente(eu) && !minhas.length ? '<p class="vazio">A gerência acompanha todas as equipes pelo <a href="#/quadro">Quadro</a> e pelos <a href="#/projetos">Projetos</a>.</p>' : ''}
-    ${!ehGerente(eu) && !minhas.length ? '<p class="vazio">Nenhuma tarefa com você por enquanto.</p>' : ''}
+    ${ehGerente(eu) && !minhas.length ? `<p class="vazio">${T('A gerência acompanha todas as equipes pelo <a href="#/quadro">Quadro</a> e pelos <a href="#/projetos">Projetos</a>.')}</p>` : ''}
+    ${!ehGerente(eu) && !minhas.length ? `<p class="vazio">${esc(T('Nenhuma tarefa com você por enquanto.'))}</p>` : ''}
     <div class="grupos">
       ${grupos.map((g) => `
         <section class="grupo ${g.classe || ''}">
-          <h2>${esc(g.nome)} <span class="contador">${g.itens.length}</span></h2>
+          <h2>${esc(T(g.nome))} <span class="contador">${g.itens.length}</span></h2>
           <div class="grade-cards">${g.itens.map((t) => cartaoTarefa(t)).join('')}</div>
         </section>`).join('')}
       ${feitas.length ? `
         <details class="grupo">
-          <summary><h2>Concluídas <span class="contador">${feitas.length}</span></h2></summary>
+          <summary><h2>${esc(T('Concluídas'))} <span class="contador">${feitas.length}</span></h2></summary>
           <div class="grade-cards">${feitas.slice(0, 30).map((t) => cartaoTarefa(t)).join('')}</div>
         </details>` : ''}
     </div>`;
@@ -97,27 +120,28 @@ export function renderQuadro() {
     : membrosDaEquipe(equipeDe(eu), estado.usuarios);
   const lista = filtrar(estado.tarefas);
   const opt = (v, txt, sel) => `<option value="${esc(v)}" ${v === sel ? 'selected' : ''}>${esc(txt)}</option>`;
+  const alcance = ehGerente(eu) ? T('Todas as equipes') : T('Equipe de {nome}', { nome: nomeDe(equipeDe(eu)) });
 
   return `
     <header class="titulo-pagina">
-      <h1>Quadro</h1>
-      <p>${ehGerente(eu) ? 'Todas as equipes' : `Equipe de ${esc(nomeDe(equipeDe(eu)))}`} · arraste os cartões para mudar o status</p>
-      <button class="botao" data-nova-tarefa>+ Nova tarefa</button>
+      <h1>${esc(T('Quadro'))}</h1>
+      <p>${esc(alcance)} · ${esc(T('arraste os cartões para mudar o status'))}</p>
+      <button class="botao" data-nova-tarefa>${esc(T('+ Nova tarefa'))}</button>
     </header>
     <div class="filtros" role="search">
-      <input type="search" placeholder="Buscar tarefa…" value="${esc(filtros.busca)}" data-filtro="busca" aria-label="Buscar">
-      <select data-filtro="projeto" aria-label="Projeto">${opt('', 'Todos os projetos', filtros.projeto)}${estado.projetos.map((p) => opt(p.id, p.nome, filtros.projeto)).join('')}</select>
-      <select data-filtro="responsavel" aria-label="Responsável">${opt('', 'Todos os responsáveis', filtros.responsavel)}${pessoas.map((u) => opt(u.id, u.nome, filtros.responsavel)).join('')}</select>
-      ${ehGerente(eu) ? `<select data-filtro="equipe" aria-label="Equipe">${opt('', 'Todas as equipes', filtros.equipe)}${lideres.map((l) => opt(l.id, `Equipe ${l.nome}`, filtros.equipe)).join('')}</select>` : ''}
-      ${Object.values(filtros).some(Boolean) ? '<button class="botao-link" data-limpar-filtros>Limpar</button>' : ''}
+      <input type="search" placeholder="${esc(T('Buscar tarefa…'))}" value="${esc(filtros.busca)}" data-filtro="busca" aria-label="${esc(T('Buscar'))}">
+      <select data-filtro="projeto" aria-label="${esc(T('Projeto'))}">${opt('', T('Todos os projetos'), filtros.projeto)}${estado.projetos.map((p) => opt(p.id, p.nome, filtros.projeto)).join('')}</select>
+      <select data-filtro="responsavel" aria-label="${esc(T('Responsável'))}">${opt('', T('Todos os responsáveis'), filtros.responsavel)}${pessoas.map((u) => opt(u.id, u.nome, filtros.responsavel)).join('')}</select>
+      ${ehGerente(eu) ? `<select data-filtro="equipe" aria-label="${esc(T('Equipe'))}">${opt('', T('Todas as equipes'), filtros.equipe)}${lideres.map((l) => opt(l.id, T('Equipe {nome}', { nome: l.nome }), filtros.equipe)).join('')}</select>` : ''}
+      ${Object.values(filtros).some(Boolean) ? `<button class="botao-link" data-limpar-filtros>${esc(T('Limpar'))}</button>` : ''}
     </div>
     <div class="kanban">
       ${STATUS.map((s) => {
         const itens = lista.filter((t) => t.status === s.id).sort(porPrazo);
         return `
           <section class="coluna coluna-${s.id}" data-coluna="${s.id}">
-            <h2><span class="bolinha" aria-hidden="true"></span>${esc(s.nome)} <span class="contador">${itens.length}</span></h2>
-            <div class="coluna-cards">${itens.map((t) => cartaoTarefa(t, { arrastavel: true })).join('') || '<p class="vazio-coluna">Nada aqui</p>'}</div>
+            <h2><span class="bolinha" aria-hidden="true"></span>${esc(T(s.nome))} <span class="contador">${itens.length}</span></h2>
+            <div class="coluna-cards">${itens.map((t) => cartaoTarefa(t, { arrastavel: true })).join('') || `<p class="vazio-coluna">${esc(T('Nada aqui'))}</p>`}</div>
           </section>`;
       }).join('')}
     </div>`;
@@ -151,8 +175,8 @@ export function montarQuadro(raiz, redesenhar) {
 
 export function mudarStatus(t, status) {
   const patch = { status, concluidaEm: status === 'concluida' ? Date.now() : null };
-  fonte.atualizarTarefa(t.id, patch, estado.usuario.id, [`mudou o status para “${nomeStatus(status)}”`])
-    .then(() => { if (status === 'concluida') aviso('Tarefa concluída ✔'); })
+  fonte.atualizarTarefa(t.id, patch, estado.usuario.id, [{ acao: 'status', valor: status }])
+    .then(() => { if (status === 'concluida') aviso(T('Tarefa concluída ✔')); })
     .catch(erro);
 }
 
@@ -160,9 +184,9 @@ export function mudarStatus(t, status) {
 
 function equipesQuePodeUsar() {
   const eu = estado.usuario;
-  if (ehGerente(eu)) return estado.usuarios.filter((u) => u.nivel === 'lider').map((l) => ({ id: l.id, nome: `Equipe ${l.nome}` }));
+  if (ehGerente(eu)) return estado.usuarios.filter((u) => u.nivel === 'lider').map((l) => ({ id: l.id, nome: T('Equipe {nome}', { nome: l.nome }) }));
   const eq = equipeDe(eu);
-  return eq ? [{ id: eq, nome: `Equipe ${nomeDe(eq)}` }] : [];
+  return eq ? [{ id: eq, nome: T('Equipe {nome}', { nome: nomeDe(eq) }) }] : [];
 }
 
 function opcoesResponsavel(equipeId, selecionado) {
@@ -172,7 +196,7 @@ function opcoesResponsavel(equipeId, selecionado) {
 
 export function novaTarefa({ projetoId = '' } = {}) {
   const equipes = equipesQuePodeUsar();
-  if (!equipes.length) { aviso('Ainda não há equipes. Cadastre um líder em Equipe.', 'erro'); return; }
+  if (!equipes.length) { aviso(T('Ainda não há equipes. Cadastre um líder em Equipe.'), 'erro'); return; }
   const eu = estado.usuario;
   const form = { equipeId: equipes[0].id, responsavelId: ehGerente(eu) ? '' : eu.id };
   const projAbertos = estado.projetos.filter((p) => p.status !== 'concluido');
@@ -180,35 +204,35 @@ export function novaTarefa({ projetoId = '' } = {}) {
   abrirModal({
     render: () => `
       <form class="form" data-form-tarefa>
-        <header class="modal-topo"><h2>Nova tarefa</h2><button type="button" class="fechar" data-fechar aria-label="Fechar">×</button></header>
-        <label>Título<input name="titulo" required maxlength="140" autofocus data-guardar="titulo" data-rascunho></label>
+        <header class="modal-topo"><h2>${esc(T('Nova tarefa'))}</h2><button type="button" class="fechar" data-fechar aria-label="${esc(T('Fechar'))}">×</button></header>
+        <label>${esc(T('Título'))}<input name="titulo" required maxlength="140" autofocus data-guardar="titulo" data-rascunho></label>
         <div class="form-linha">
-          <label>Projeto<select name="projetoId" data-guardar="projetoId" data-rascunho>
-            <option value="">Sem projeto</option>
+          <label>${esc(T('Projeto'))}<select name="projetoId" data-guardar="projetoId" data-rascunho>
+            <option value="">${esc(T('Sem projeto'))}</option>
             ${projAbertos.map((p) => `<option value="${esc(p.id)}" ${p.id === projetoId ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}
           </select></label>
-          ${equipes.length > 1 ? `<label>Equipe<select name="equipeId" data-equipe>
+          ${equipes.length > 1 ? `<label>${esc(T('Equipe'))}<select name="equipeId" data-equipe>
             ${equipes.map((e) => `<option value="${esc(e.id)}" ${e.id === form.equipeId ? 'selected' : ''}>${esc(e.nome)}</option>`).join('')}
           </select></label>` : `<input type="hidden" name="equipeId" value="${esc(form.equipeId)}">`}
         </div>
         <div class="form-linha">
-          <label>Responsável<select name="responsavelId" required data-responsavel>
-            <option value="">Escolha…</option>${opcoesResponsavel(form.equipeId, form.responsavelId)}
+          <label>${esc(T('Responsável'))}<select name="responsavelId" required data-responsavel>
+            <option value="">${esc(T('Escolha…'))}</option>${opcoesResponsavel(form.equipeId, form.responsavelId)}
           </select></label>
-          <label>Prazo<input type="date" name="prazo" data-guardar="prazo" data-rascunho></label>
-          <label>Prioridade<select name="prioridade" data-guardar="prioridade" data-rascunho>
-            ${PRIORIDADES.map((p) => `<option value="${p.id}" ${p.id === 'media' ? 'selected' : ''}>${p.nome}</option>`).join('')}
+          <label>${esc(T('Prazo'))}<input type="date" name="prazo" data-guardar="prazo" data-rascunho></label>
+          <label>${esc(T('Prioridade'))}<select name="prioridade" data-guardar="prioridade" data-rascunho>
+            ${PRIORIDADES.map((p) => `<option value="${p.id}" ${p.id === 'media' ? 'selected' : ''}>${esc(T(p.nome))}</option>`).join('')}
           </select></label>
         </div>
-        <label>Descrição<textarea name="descricao" rows="4" data-guardar="descricao" data-rascunho placeholder="Detalhes, links, combinados…"></textarea></label>
-        <footer class="modal-rodape"><button type="button" class="botao-sec" data-fechar>Cancelar</button><button class="botao">Criar tarefa</button></footer>
+        <label>${esc(T('Descrição'))}<textarea name="descricao" rows="4" data-guardar="descricao" data-rascunho placeholder="${esc(T('Detalhes, links, combinados…'))}"></textarea></label>
+        <footer class="modal-rodape"><button type="button" class="botao-sec" data-fechar>${esc(T('Cancelar'))}</button><button class="botao">${esc(T('Criar tarefa'))}</button></footer>
       </form>`,
     eventos: {
       click: (ev) => { if (ev.target.closest('[data-fechar]')) fecharModal(); },
       change: (ev) => {
         if (ev.target.matches('[data-equipe]')) {
           form.equipeId = ev.target.value; form.responsavelId = '';
-          ev.currentTarget.querySelector('[data-responsavel]').innerHTML = `<option value="">Escolha…</option>${opcoesResponsavel(form.equipeId, '')}`;
+          ev.currentTarget.querySelector('[data-responsavel]').innerHTML = `<option value="">${esc(T('Escolha…'))}</option>${opcoesResponsavel(form.equipeId, '')}`;
         }
         if (ev.target.matches('[data-responsavel]')) form.responsavelId = ev.target.value;
       },
@@ -221,7 +245,7 @@ export function novaTarefa({ projetoId = '' } = {}) {
           descricao: d.descricao.trim(), status: 'afazer'
         };
         if (!dados.titulo || !dados.responsavelId) return;
-        fonte.criarTarefa(dados, eu.id).then(() => { fecharModal(); aviso('Tarefa criada'); }).catch(erro);
+        fonte.criarTarefa(dados, eu.id).then(() => { fecharModal(); aviso(T('Tarefa criada')); }).catch(erro);
       }
     }
   });
@@ -250,67 +274,67 @@ export function abrirTarefa(id) {
       const feitos = check.filter((c) => c.feito).length;
       return `
         <header class="modal-topo detalhe-topo">
-          <input class="detalhe-titulo" value="${esc(t.titulo)}" data-campo="titulo" data-guardar="titulo" maxlength="140" aria-label="Título">
-          <button type="button" class="fechar" data-fechar aria-label="Fechar">×</button>
+          <input class="detalhe-titulo" value="${esc(t.titulo)}" data-campo="titulo" data-guardar="titulo" maxlength="140" aria-label="${esc(T('Título'))}">
+          <button type="button" class="fechar" data-fechar aria-label="${esc(T('Fechar'))}">×</button>
         </header>
-        <div class="seg-status" role="group" aria-label="Status">
-          ${STATUS.map((s) => `<button type="button" class="seg seg-${s.id} ${t.status === s.id ? 'ativo' : ''}" data-status="${s.id}" aria-pressed="${t.status === s.id}">${s.nome}</button>`).join('')}
-          ${atrasada(t) ? '<span class="selo-texto atrasada">! Atrasada</span>' : ''}
+        <div class="seg-status" role="group" aria-label="${esc(T('Status'))}">
+          ${STATUS.map((s) => `<button type="button" class="seg seg-${s.id} ${t.status === s.id ? 'ativo' : ''}" data-status="${s.id}" aria-pressed="${t.status === s.id}">${esc(T(s.nome))}</button>`).join('')}
+          ${atrasada(t) ? `<span class="selo-texto atrasada">${esc(T('! Atrasada'))}</span>` : ''}
         </div>
         <div class="detalhe-grade">
           <div class="detalhe-principal">
             <section>
-              <h3>Descrição</h3>
-              <textarea rows="4" data-campo="descricao" data-guardar="descricao" placeholder="Adicione detalhes, links, combinados…">${esc(t.descricao || '')}</textarea>
+              <h3>${esc(T('Descrição'))}</h3>
+              <textarea rows="4" data-campo="descricao" data-guardar="descricao" placeholder="${esc(T('Adicione detalhes, links, combinados…'))}">${esc(t.descricao || '')}</textarea>
             </section>
             <section>
-              <h3>Checklist ${check.length ? `<span class="contador">${feitos}/${check.length}</span>` : ''}</h3>
+              <h3>${esc(T('Checklist'))} ${check.length ? `<span class="contador">${feitos}/${check.length}</span>` : ''}</h3>
               ${check.length ? `<div class="barra" aria-hidden="true"><span style="width:${Math.round((feitos / check.length) * 100)}%"></span></div>` : ''}
               <ul class="checklist">
                 ${check.map((c, i) => `
                   <li class="${c.feito ? 'feito' : ''}">
                     <label><input type="checkbox" data-check="${i}" ${c.feito ? 'checked' : ''}> <span>${esc(c.texto)}</span></label>
-                    <button type="button" class="botao-icone" data-check-remover="${i}" aria-label="Remover item">×</button>
+                    <button type="button" class="botao-icone" data-check-remover="${i}" aria-label="${esc(T('Remover item'))}">×</button>
                   </li>`).join('')}
               </ul>
               <form class="add-linha" data-check-novo>
-                <input placeholder="Adicionar item…" maxlength="200" data-guardar="novoItem" data-rascunho>
-                <button class="botao-sec">Adicionar</button>
+                <input placeholder="${esc(T('Adicionar item…'))}" maxlength="200" data-guardar="novoItem" data-rascunho>
+                <button class="botao-sec">${esc(T('Adicionar'))}</button>
               </form>
             </section>
             <section>
-              <h3>Comentários <span class="contador">${(t.comentarios || []).length}</span></h3>
+              <h3>${esc(T('Comentários'))} <span class="contador">${(t.comentarios || []).length}</span></h3>
               <ul class="comentarios">
                 ${(t.comentarios || []).slice().sort((a, b) => a.em - b.em).map((c) => `
-                  <li>${avatar(nomeDe(c.por))}<div><strong>${esc(nomeDe(c.por))}</strong> <time>${esc(fmtDataHora(c.em))}</time><p>${esc(c.texto)}</p></div></li>`).join('') || '<li class="vazio">Nenhum comentário ainda.</li>'}
+                  <li>${avatar(nomeDe(c.por))}<div><strong>${esc(nomeDe(c.por))}</strong> <time>${esc(fmtDataHora(c.em))}</time><p>${esc(c.texto)}</p></div></li>`).join('') || `<li class="vazio">${esc(T('Nenhum comentário ainda.'))}</li>`}
               </ul>
               <form class="add-comentario" data-comentar>
-                <textarea rows="2" placeholder="Escreva um comentário…" data-guardar="comentario" data-rascunho></textarea>
-                <button class="botao">Comentar</button>
+                <textarea rows="2" placeholder="${esc(T('Escreva um comentário…'))}" data-guardar="comentario" data-rascunho></textarea>
+                <button class="botao">${esc(T('Comentar'))}</button>
               </form>
             </section>
           </div>
           <aside class="detalhe-lateral">
-            <label>Responsável<select data-campo="responsavelId">
+            <label>${esc(T('Responsável'))}<select data-campo="responsavelId">
               ${opcoesResponsavel(t.equipeId, t.responsavelId)}
             </select></label>
-            <label>Prazo<input type="date" value="${esc(t.prazo || '')}" data-campo="prazo"></label>
-            <label>Prioridade<select data-campo="prioridade">
-              ${PRIORIDADES.map((p) => `<option value="${p.id}" ${p.id === t.prioridade ? 'selected' : ''}>${p.nome}</option>`).join('')}
+            <label>${esc(T('Prazo'))}<input type="date" value="${esc(t.prazo || '')}" data-campo="prazo"></label>
+            <label>${esc(T('Prioridade'))}<select data-campo="prioridade">
+              ${PRIORIDADES.map((p) => `<option value="${p.id}" ${p.id === t.prioridade ? 'selected' : ''}>${esc(T(p.nome))}</option>`).join('')}
             </select></label>
-            <label>Projeto<select data-campo="projetoId">
-              <option value="">Sem projeto</option>
+            <label>${esc(T('Projeto'))}<select data-campo="projetoId">
+              <option value="">${esc(T('Sem projeto'))}</option>
               ${estado.projetos.filter((p) => p.status !== 'concluido' || p.id === t.projetoId).map((p) => `<option value="${esc(p.id)}" ${p.id === t.projetoId ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}
             </select></label>
-            <p class="meta">Equipe de <strong>${esc(nomeDe(t.equipeId))}</strong></p>
-            <p class="meta">Criada por <strong>${esc(nomeDe(t.criadoPor))}</strong><br>${esc(fmtDataHora(t.criadoEm))}</p>
-            ${proj ? `<p class="meta"><a href="#/projetos/${esc(proj.id)}" data-fechar>Ver projeto →</a></p>` : ''}
+            <p class="meta">${T('Equipe de <strong>{nome}</strong>', { nome: esc(nomeDe(t.equipeId)) })}</p>
+            <p class="meta">${T('Criada por <strong>{nome}</strong>', { nome: esc(nomeDe(t.criadoPor)) })}<br>${esc(fmtDataHora(t.criadoEm))}</p>
+            ${proj ? `<p class="meta"><a href="#/projetos/${esc(proj.id)}" data-fechar>${esc(T('Ver projeto →'))}</a></p>` : ''}
             <details class="historico">
-              <summary>Histórico (${(t.historico || []).length})</summary>
+              <summary>${esc(T('Histórico ({n})', { n: (t.historico || []).length }))}</summary>
               <ol>${(t.historico || []).slice().sort((a, b) => b.em - a.em).map((h) => `
-                <li><time>${esc(fmtDataHora(h.em))}</time> <strong>${esc(nomeDe(h.por))}</strong> ${esc(h.texto)}</li>`).join('')}</ol>
+                <li><time>${esc(fmtDataHora(h.em))}</time> <strong>${esc(nomeDe(h.por))}</strong> ${esc(textoHistorico(h))}</li>`).join('')}</ol>
             </details>
-            ${ger || eu().nivel === 'lider' ? '<button type="button" class="botao-perigo" data-excluir>Excluir tarefa</button>' : ''}
+            ${ger || eu().nivel === 'lider' ? `<button type="button" class="botao-perigo" data-excluir>${esc(T('Excluir tarefa'))}</button>` : ''}
           </aside>
         </div>`;
     },
@@ -325,11 +349,11 @@ export function abrirTarefa(id) {
         if (rem) {
           const i = Number(rem.dataset.checkRemover);
           const item = t.checklist[i];
-          salvar({ checklist: t.checklist.filter((_, j) => j !== i) }, `removeu o item “${item.texto}” do checklist`);
+          salvar({ checklist: t.checklist.filter((_, j) => j !== i) }, { acao: 'check_rem', valor: item.texto });
           return;
         }
-        if (ev.target.closest('[data-excluir]') && confirmar(`Excluir a tarefa “${t.titulo}”? Isso não pode ser desfeito.`)) {
-          fonte.excluirTarefa(t.id).then(() => { fecharModal(); aviso('Tarefa excluída'); }).catch(erro);
+        if (ev.target.closest('[data-excluir]') && confirmar(T('Excluir a tarefa “{t}”? Isso não pode ser desfeito.', { t: t.titulo }))) {
+          fonte.excluirTarefa(t.id).then(() => { fecharModal(); aviso(T('Tarefa excluída')); }).catch(erro);
         }
       },
       change: (ev) => {
@@ -338,7 +362,7 @@ export function abrirTarefa(id) {
         if (ev.target.matches('[data-check]')) {
           const i = Number(ev.target.dataset.check);
           const checklist = t.checklist.map((c, j) => (j === i ? { ...c, feito: ev.target.checked } : c));
-          salvar({ checklist }, `${ev.target.checked ? 'marcou' : 'desmarcou'} “${t.checklist[i].texto}”`);
+          salvar({ checklist }, { acao: ev.target.checked ? 'check_on' : 'check_off', valor: t.checklist[i].texto });
           return;
         }
         const campo = ev.target.dataset.campo;
@@ -348,15 +372,8 @@ export function abrirTarefa(id) {
         if (campo === 'descricao') valor = valor.trim();
         if ((campo === 'prazo' || campo === 'projetoId') && !valor) valor = null;
         if ((t[campo] ?? null) === valor) return;
-        const texto = {
-          titulo: `renomeou para “${valor}”`,
-          descricao: 'editou a descrição',
-          responsavelId: `passou a tarefa para ${nomeDe(valor)}`,
-          prazo: valor ? `mudou o prazo para ${fmtData(valor)}` : 'removeu o prazo',
-          prioridade: `mudou a prioridade para ${nomePrioridade(valor)}`,
-          projetoId: valor ? `moveu para o projeto “${(projetoDe(valor) || {}).nome}”` : 'tirou a tarefa do projeto'
-        }[campo];
-        salvar({ [campo]: valor }, texto);
+        const acao = { responsavelId: 'responsavel', projetoId: 'projeto' }[campo] || campo;
+        salvar({ [campo]: valor }, { acao, valor: campo === 'descricao' ? null : valor });
       },
       submit: (ev) => {
         ev.preventDefault();
@@ -367,7 +384,7 @@ export function abrirTarefa(id) {
           const texto = inp.value.trim();
           if (!texto) return;
           inp.value = '';
-          salvar({ checklist: [...(t.checklist || []), { texto, feito: false }] }, `adicionou “${texto}” ao checklist`);
+          salvar({ checklist: [...(t.checklist || []), { texto, feito: false }] }, { acao: 'check_add', valor: texto });
         }
         if (ev.target.matches('[data-comentar]')) {
           const ta = ev.target.querySelector('textarea');

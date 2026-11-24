@@ -4,6 +4,7 @@
 import { MODO_DEMO } from './config.js';
 import { fonteLocal } from './dados/local.js';
 import { fonteFirebase } from './dados/firebase.js';
+import { ehGerente } from './dominio/regras.js';
 
 export const fonte = MODO_DEMO ? fonteLocal : fonteFirebase;
 
@@ -12,7 +13,8 @@ export const estado = {
   usuario: null,
   usuarios: [],
   projetos: [],
-  tarefas: []
+  tarefas: [],
+  convites: []
 };
 
 const ouvintes = new Set();
@@ -33,13 +35,14 @@ export function iniciarEstado() {
       usuarioAssinado = chave;
       pararDados.forEach((p) => p());
       pararDados = [];
-      estado.usuarios = []; estado.projetos = []; estado.tarefas = [];
+      estado.usuarios = []; estado.projetos = []; estado.tarefas = []; estado.convites = [];
       if (usuario && usuario.nivel !== 'pendente') {
         pararDados = [
           fonte.observarUsuarios((l) => { estado.usuarios = l; avisar(); }),
           fonte.observarProjetos((l) => { estado.projetos = l; avisar(); }),
           fonte.observarTarefas(usuario, (l) => { estado.tarefas = l; avisar(); })
         ];
+        if (ehGerente(usuario)) pararDados.push(fonte.observarConvites((l) => { estado.convites = l; avisar(); }));
       }
     }
     avisar();

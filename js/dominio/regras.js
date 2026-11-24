@@ -4,6 +4,7 @@
 import { hojeISO, limitesSemana } from './datas.js';
 
 export const NIVEIS = {
+  adm: 'ADM',
   gerente: 'Gerência',
   lider: 'Líder',
   analista: 'Analista',
@@ -32,9 +33,35 @@ export function equipeDe(usuario) {
   return null;
 }
 
-export const ehGerente = (u) => !!u && u.nivel === 'gerente';
-export const podeCriarProjeto = (u) => !!u && (u.nivel === 'gerente' || u.nivel === 'lider');
-export const ativo = (u) => !!u && ['gerente', 'lider', 'analista'].includes(u.nivel);
+/** ADM (só o criador, para testes) fica acima da gerência e tem tudo liberado. */
+export const ehAdm = (u) => !!u && u.nivel === 'adm';
+/** Gerência ou ADM: vê todas as equipes. */
+export const ehGerente = (u) => !!u && (u.nivel === 'gerente' || u.nivel === 'adm');
+export const podeCriarProjeto = (u) => !!u && ['adm', 'gerente', 'lider'].includes(u.nivel);
+export const ativo = (u) => !!u && ['adm', 'gerente', 'lider', 'analista'].includes(u.nivel);
+
+/** Níveis que `quem` pode dar a outra pessoa. Só o ADM cria gerentes. */
+export function niveisQuePodeDar(quem) {
+  if (ehAdm(quem)) return ['gerente', 'lider', 'analista', 'pendente'];
+  if (ehGerente(quem)) return ['lider', 'analista', 'pendente'];
+  return [];
+}
+
+/** `quem` pode mudar o nível/líder de `alvo`? Gerência não mexe em gerentes nem no ADM. */
+export function podeEditarPessoa(quem, alvo) {
+  if (!quem || !alvo || quem.id === alvo.id) return false;
+  if (ehAdm(quem)) return true;
+  return ehGerente(quem) && !['gerente', 'adm'].includes(alvo.nivel);
+}
+
+/** O ADM fica escondido das listas para todo mundo menos ele mesmo. */
+export const pessoasVisiveis = (quem, usuarios) => (ehAdm(quem) ? usuarios : usuarios.filter((u) => u.nivel !== 'adm'));
+
+export const VALIDADE_CONVITE_MS = 7 * 86400000;
+/** Convite ainda pode ser usado? */
+export function conviteValido(c, agora = Date.now()) {
+  return !!c && !c.usado && typeof c.expiraEm === 'number' && c.expiraEm > agora;
+}
 
 /** O usuário enxerga esta tarefa? Gerente vê tudo; os demais só a própria equipe. */
 export function podeVerTarefa(usuario, tarefa) {
