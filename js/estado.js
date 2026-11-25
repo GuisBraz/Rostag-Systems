@@ -49,5 +49,7 @@ export function iniciarEstado() {
   });
 }
 
+/** A pessoa (para avatar com foto); quem não existe vira só o nome "—". */
+export const pessoaDe = (id) => estado.usuarios.find((u) => u.id === id) || (estado.usuario && estado.usuario.id === id ? estado.usuario : { nome: '—' });
 export const nomeDe = (id) => (estado.usuarios.find((u) => u.id === id) || {}).nome || '—';
 export const projetoDe = (id) => estado.projetos.find((p) => p.id === id) || null;

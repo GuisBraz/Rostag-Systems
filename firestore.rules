@@ -39,13 +39,23 @@ service cloud.firestore {
           && getAfter(/databases/$(database)/documents/convites/$(request.resource.data.convite)).data.usadoPor == request.auth.uid
         ));
 
+      // Foto: JPEG pequeno embutido (data URL, até ~30 KB) ou nenhuma.
+      function fotoValida() {
+        return !('foto' in request.resource.data) || request.resource.data.foto == null
+          || (request.resource.data.foto is string
+              && request.resource.data.foto.size() <= 30000
+              && request.resource.data.foto.matches('^data:image/jpeg;base64,[A-Za-z0-9+/=]+$'));
+      }
+
       // ADM muda qualquer um. Gerência muda só líderes, analistas e pendentes, e não cria gerentes.
-      // Cada um pode mudar o próprio nome.
-      allow update: if adm()
+      // Cada um pode mudar o próprio nome e a própria foto (a foto ninguém troca pelos outros).
+      allow update: if fotoValida() && (
+        (adm() && (request.auth.uid == uid || !mudou().hasAny(['foto'])))
         || (gerente() && request.auth.uid != uid
+            && !mudou().hasAny(['foto'])
             && resource.data.nivel in ['lider', 'analista', 'pendente']
             && request.resource.data.nivel in ['lider', 'analista', 'pendente'])
-        || (logado() && request.auth.uid == uid && mudou().hasOnly(['nome']));
+        || (logado() && request.auth.uid == uid && mudou().hasOnly(['nome', 'foto'])));
       allow delete: if adm() && request.auth.uid != uid;
     }
 

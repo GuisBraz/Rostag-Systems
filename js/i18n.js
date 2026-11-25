@@ -117,6 +117,10 @@ const EN = {
   // Nova versão
   'Nova versão disponível ({v}).': 'New version available ({v}).', 'Recarregar': 'Reload', 'Depois': 'Later', 'Atualizando…': 'Updating…',
 
+  // Foto
+  'Trocar foto': 'Change photo', 'Remover foto': 'Remove photo', 'Foto atualizada': 'Photo updated', 'Foto removida': 'Photo removed',
+  'Não foi possível ler essa imagem.': 'Couldn’t read that image.',
+
   // Erros
   'Você não tem permissão para isso.': 'You don’t have permission to do that.', 'Algo deu errado.': 'Something went wrong.',
   'No modo demonstração não há cadastro.': 'There is no sign-up in demo mode.'

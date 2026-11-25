@@ -14,7 +14,14 @@ export function iniciais(nome) {
   return ((partes[0] || '')[0] + (partes.length > 1 ? partes[partes.length - 1][0] : '')).toUpperCase();
 }
 
-export function avatar(nome, extra = '') {
+/** Foto aceita no avatar: só imagens embutidas (data URL) geradas pelo próprio app. */
+const FOTO_OK = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+
+/** Avatar de uma pessoa: a foto, se tiver; senão as iniciais. Aceita a pessoa ou só o nome. */
+export function avatar(pessoa, extra = '') {
+  const nome = typeof pessoa === 'string' ? pessoa : (pessoa && pessoa.nome) || '?';
+  const foto = pessoa && typeof pessoa === 'object' && typeof pessoa.foto === 'string' && FOTO_OK.test(pessoa.foto) ? pessoa.foto : '';
+  if (foto) return `<img class="avatar avatar-foto ${extra}" src="${foto}" alt="" title="${esc(nome)}">`;
   return `<span class="avatar ${extra}" title="${esc(nome)}">${esc(iniciais(nome))}</span>`;
 }
 

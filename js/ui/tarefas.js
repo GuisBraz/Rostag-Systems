@@ -1,6 +1,6 @@
 /* Tarefas: cartão, "Minhas tarefas", quadro Kanban, nova tarefa e detalhe. */
 
-import { estado, fonte, nomeDe, projetoDe } from '../estado.js';
+import { estado, fonte, nomeDe, projetoDe, pessoaDe } from '../estado.js';
 import {
   STATUS, PRIORIDADES, nomeStatus, nomePrioridade, atrasada, ehGerente, equipeDe,
   membrosDaEquipe, podeVerTarefa, nomeProjeto, tarefasAtivas, arquivado
@@ -49,7 +49,7 @@ export function cartaoTarefa(t, { arrastavel = false } = {}) {
       ${proj ? `<span class="ct-projeto">${esc(nomeProjeto(proj))}</span>` : ''}
       <h3 class="ct-titulo">${esc(t.titulo)}</h3>
       <div class="ct-rodape">
-        ${avatar(nomeDe(t.responsavelId))}
+        ${avatar(pessoaDe(t.responsavelId))}
         ${prazoHtml(t)}
         ${total ? `<span class="ct-check" title="${esc(T('Checklist'))}">☑ ${feitos}/${total}</span>` : ''}
         ${(t.comentarios || []).length ? `<span class="ct-com" title="${esc(T('Comentários'))}">💬 ${t.comentarios.length}</span>` : ''}
@@ -319,7 +319,7 @@ export function abrirTarefa(id) {
               <h3>${esc(T('Comentários'))} <span class="contador">${(t.comentarios || []).length}</span></h3>
               <ul class="comentarios">
                 ${(t.comentarios || []).slice().sort((a, b) => a.em - b.em).map((c) => `
-                  <li>${avatar(nomeDe(c.por))}<div><strong>${esc(nomeDe(c.por))}</strong> <time>${esc(fmtDataHora(c.em))}</time><p>${esc(c.texto)}</p></div></li>`).join('') || `<li class="vazio">${esc(T('Nenhum comentário ainda.'))}</li>`}
+                  <li>${avatar(pessoaDe(c.por))}<div><strong>${esc(nomeDe(c.por))}</strong> <time>${esc(fmtDataHora(c.em))}</time><p>${esc(c.texto)}</p></div></li>`).join('') || `<li class="vazio">${esc(T('Nenhum comentário ainda.'))}</li>`}
               </ul>
               <form class="add-comentario" data-comentar>
                 <textarea rows="2" placeholder="${esc(T('Escreva um comentário…'))}" data-guardar="comentario" data-rascunho></textarea>

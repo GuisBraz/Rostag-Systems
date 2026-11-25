@@ -173,7 +173,7 @@ function desenharCasca() {
   const usuario = $('#usuario');
   usuario.classList.toggle('ativo', r.id === 'config');
   usuario.title = t('Configurações');
-  usuario.innerHTML = `${avatar(u.nome)}<div><strong>${esc(u.nome)}</strong><small>${esc(t(NIVEIS[u.nivel]))}</small></div><span class="engrenagem" aria-hidden="true">⚙</span>`;
+  usuario.innerHTML = `${avatar(u)}<div><strong>${esc(u.nome)}</strong><small>${esc(t(NIVEIS[u.nivel]))}</small></div><span class="engrenagem" aria-hidden="true">⚙</span>`;
 
   const faixa = $('#faixa-demo');
   if (faixa) {

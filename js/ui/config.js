@@ -9,6 +9,7 @@ import { fmtDataHora } from '../dominio/datas.js';
 import { t } from '../i18n.js';
 import { pref, definirPref } from '../prefs.js';
 import { esc, avatar, aviso, erro, copiar, confirmar } from './base.js';
+import { reduzirFoto } from './foto.js';
 
 export const ABAS_CONFIG = [
   { id: 'conta', nome: 'Conta' },
@@ -43,7 +44,12 @@ function abaConta() {
   return `
     <section class="cartao cartao-config">
       <div class="perfil">
-        ${avatar(u.nome, 'avatar-g')}
+        <label class="foto-perfil" title="${esc(t('Trocar foto'))}">
+          ${avatar(u, 'avatar-g')}
+          <span class="foto-trocar">${esc(t('Trocar foto'))}</span>
+          <input type="file" accept="image/*" data-foto hidden>
+        </label>
+        ${u.foto ? `<button type="button" class="botao-link" data-remover-foto>${esc(t('Remover foto'))}</button>` : ''}
         <h2>${esc(u.nome)}</h2>
         <p class="meta">${esc(u.email || '')}</p>
         <p><span class="selo-texto">${esc(t(NIVEIS[u.nivel]))}</span>${eq ? ` · ${esc(t('Equipe de {nome}', { nome: nomeDe(eq) }))}` : ''}</p>
@@ -70,8 +76,8 @@ function organograma(lideres, analistas) {
     <div class="organograma">
       ${lideres.map((l) => `
         <div class="org-equipe">
-          <div class="org-lider">${avatar(l.nome)}<strong>${esc(l.nome)}</strong><small>${esc(t('Líder'))}</small></div>
-          <ul>${analistas.filter((a) => a.liderId === l.id).map((a) => `<li>${avatar(a.nome, 'avatar-p')}${esc(a.nome)}</li>`).join('') || `<li class="meta">${esc(t('Sem analistas'))}</li>`}</ul>
+          <div class="org-lider">${avatar(l)}<strong>${esc(l.nome)}</strong><small>${esc(t('Líder'))}</small></div>
+          <ul>${analistas.filter((a) => a.liderId === l.id).map((a) => `<li>${avatar(a, 'avatar-p')}${esc(a.nome)}</li>`).join('') || `<li class="meta">${esc(t('Sem analistas'))}</li>`}</ul>
         </div>`).join('') || `<p class="vazio">${esc(t('Defina pelo menos um líder abaixo.'))}</p>`}
     </div>`;
 }
@@ -102,7 +108,7 @@ function abaEquipe() {
     const opcoes = niveisQuePodeDar(eu);
     return `
       <tr class="${u.nivel === 'pendente' ? 'linha-pendente' : ''}">
-        <td><div class="pessoa">${avatar(u.nome)}<div><strong>${esc(u.nome)}</strong><small>${esc(u.email || '')}</small></div></div></td>
+        <td><div class="pessoa">${avatar(u)}<div><strong>${esc(u.nome)}</strong><small>${esc(u.email || '')}</small></div></div></td>
         <td>${editavel ? `
           <select data-nivel="${esc(u.id)}" aria-label="${esc(t('Nível'))}: ${esc(u.nome)}">
             ${opcoes.map((id) => `<option value="${id}" ${id === u.nivel ? 'selected' : ''}>${esc(t(NIVEIS[id]))}</option>`).join('')}
@@ -184,6 +190,10 @@ export function montarConfig(raiz, redesenharTudo) {
     const p = ev.target.closest('[data-pref]');
     if (p) { definirPref(p.dataset.pref, p.dataset.valor); redesenharTudo(); return; }
     if (ev.target.closest('[data-sair]')) { fonte.sair(); return; }
+    if (ev.target.closest('[data-remover-foto]')) {
+      fonte.atualizarUsuario(eu.id, { foto: null }).then(() => aviso(t('Foto removida'))).catch(erro);
+      return;
+    }
     const cop = ev.target.closest('[data-copiar-convite]');
     if (cop) { copiar(linkConvite(cop.dataset.copiarConvite)).then(() => aviso(t('Link copiado'))); return; }
     const can = ev.target.closest('[data-cancelar-convite]');
@@ -194,6 +204,16 @@ export function montarConfig(raiz, redesenharTudo) {
 
   raiz.addEventListener('change', (ev) => {
     const el = ev.target;
+    if (el.matches('[data-foto]')) {
+      const arquivo = el.files && el.files[0];
+      el.value = '';
+      if (!arquivo) return;
+      reduzirFoto(arquivo)
+        .then((foto) => fonte.atualizarUsuario(eu.id, { foto }))
+        .then(() => aviso(t('Foto atualizada')))
+        .catch(erro);
+      return;
+    }
     if (el.dataset.nivel) {
       const patch = { nivel: el.value };
       if (el.value !== 'analista') patch.liderId = null;

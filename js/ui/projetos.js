@@ -2,7 +2,7 @@
    Cada projeto é um escopo de uma commessa (2025-006 · Motorização), com
    cliente, tipo de serviço, início, entrega, 1 líder e analistas responsáveis. */
 
-import { estado, fonte, nomeDe } from '../estado.js';
+import { estado, fonte, nomeDe, pessoaDe } from '../estado.js';
 import {
   podeCriarProjeto, ehGerente, atrasada, STATUS, nomeProjeto, commessaValida, arquivado, membrosDaEquipe
 } from '../dominio/regras.js';
@@ -21,7 +21,7 @@ export function progresso(tarefas) {
 export function responsaveisHtml(p) {
   const ids = [p.liderId, ...(p.analistaIds || [])].filter(Boolean);
   if (!ids.length) return '';
-  return `<span class="responsaveis" title="${esc(ids.map(nomeDe).join(', '))}">${ids.map((id) => avatar(nomeDe(id), 'avatar-p')).join('')}</span>`;
+  return `<span class="responsaveis" title="${esc(ids.map(nomeDe).join(', '))}">${ids.map((id) => avatar(pessoaDe(id), 'avatar-p')).join('')}</span>`;
 }
 
 export function periodoTexto(p) {
@@ -116,7 +116,7 @@ function checksAnalistas(liderId, marcados) {
   if (!analistas.length) return `<p class="meta">${esc(T('Este líder ainda não tem analistas.'))}</p>`;
   return analistas.map((a) => `
     <label class="check-pessoa"><input type="checkbox" name="analistaIds" value="${esc(a.id)}" ${marcados.includes(a.id) ? 'checked' : ''}>
-      ${avatar(a.nome, 'avatar-p')} ${esc(a.nome)}</label>`).join('');
+      ${avatar(a, 'avatar-p')} ${esc(a.nome)}</label>`).join('');
 }
 
 export function formProjeto(id = null) {

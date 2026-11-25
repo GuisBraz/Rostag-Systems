@@ -162,3 +162,21 @@ test('projeto: arquivar (concluído) e todos os ativos leem', async () => {
   await assertFails(como(L1).doc('projetos/p1').update({ commessa: 'x' }));
   await assertFails(como(P).doc('projetos/p1').get());
 });
+
+/* ---------------------------------------------------------------- foto */
+
+test('foto: cada um troca e remove a própria; ninguém troca a dos outros', async () => {
+  const foto = 'data:image/jpeg;base64,' + 'A'.repeat(2000);
+  await assertSucceeds(como(N1).doc(`usuarios/${N1}`).update({ foto }));
+  await assertSucceeds(como(N1).doc(`usuarios/${N1}`).update({ foto: null }));
+  await assertFails(como(N1).doc(`usuarios/${N2}`).update({ foto }));
+  await assertFails(como(G).doc(`usuarios/${N1}`).update({ foto }));
+  await assertFails(como(A).doc(`usuarios/${N1}`).update({ foto }));
+  await assertSucceeds(como(A).doc(`usuarios/${A}`).update({ foto }));
+});
+
+test('foto: só JPEG embutido e pequeno', async () => {
+  await assertFails(como(N1).doc(`usuarios/${N1}`).update({ foto: 'https://exemplo.com/eu.jpg' }));
+  await assertFails(como(N1).doc(`usuarios/${N1}`).update({ foto: 'data:image/svg+xml;base64,PHN2Zz4=' }));
+  await assertFails(como(N1).doc(`usuarios/${N1}`).update({ foto: 'data:image/jpeg;base64,' + 'A'.repeat(40000) }));
+});
