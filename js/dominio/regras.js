@@ -117,3 +117,38 @@ export function abertasPor(campo, tarefas) {
   });
   return mapa;
 }
+
+/* ------------------------------------------------------------------ projetos */
+
+/** Commessa no formato AAAA-NNN (ex.: 2025-006). Pode repetir: cada escopo é um projeto. */
+export const commessaValida = (c) => /^\d{4}-\d{3}$/.test(String(c || '').trim());
+
+/** "2025-006 · Motorização" (projetos antigos, sem commessa, ficam só com o nome). */
+export const nomeProjeto = (p) => (!p ? '' : (p.commessa ? `${p.commessa} · ${p.nome}` : p.nome));
+
+export const arquivado = (p) => !!p && p.status === 'concluido';
+
+/** O projeto é "meu"? Sou o líder responsável, um dos analistas responsáveis ou quem criou. */
+export function projetoEhMeu(usuario, p) {
+  if (!usuario || !p) return false;
+  return p.liderId === usuario.id || (p.analistaIds || []).includes(usuario.id) || p.criadoPor === usuario.id;
+}
+
+/** Tarefas que não pertencem a projeto arquivado (as arquivadas somem do Quadro e do painel). */
+export function tarefasAtivas(tarefas, projetos) {
+  const arquivados = new Set(projetos.filter(arquivado).map((p) => p.id));
+  return tarefas.filter((t) => !t.projetoId || !arquivados.has(t.projetoId));
+}
+
+const diasEntre = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86400000);
+
+/** Situação do período do projeto em relação a hoje (datas 'AAAA-MM-DD'). */
+export function situacaoPeriodo(p, hoje = hojeISO()) {
+  const { inicio, prazo } = p;
+  if (!prazo) return { tipo: 'semdata', dias: 0, pct: 0 };
+  if (prazo < hoje) return { tipo: 'atrasado', dias: diasEntre(prazo, hoje), pct: 100 };
+  if (inicio && inicio > hoje) return { tipo: 'futuro', dias: diasEntre(hoje, inicio), pct: 0 };
+  const total = inicio ? Math.max(1, diasEntre(inicio, prazo)) : 1;
+  const passados = inicio ? diasEntre(inicio, hoje) : 0;
+  return { tipo: 'andamento', dias: diasEntre(hoje, prazo), pct: inicio ? Math.min(100, Math.round((passados / total) * 100)) : 0 };
+}

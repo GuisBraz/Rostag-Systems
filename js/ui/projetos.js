@@ -1,37 +1,57 @@
-/* Projetos: lista (visível para todos), página do projeto e formulário. */
+/* Projetos: lista (visível para todos), página do projeto e formulário.
+   Cada projeto é um escopo de uma commessa (2025-006 · Motorização), com
+   cliente, tipo de serviço, início, entrega, 1 líder e analistas responsáveis. */
 
 import { estado, fonte, nomeDe } from '../estado.js';
-import { podeCriarProjeto, ehGerente, atrasada, STATUS } from '../dominio/regras.js';
+import {
+  podeCriarProjeto, ehGerente, atrasada, STATUS, nomeProjeto, commessaValida, arquivado, membrosDaEquipe
+} from '../dominio/regras.js';
 import { fmtData } from '../dominio/datas.js';
 import { t as T } from '../i18n.js';
-import { esc, abrirModal, fecharModal, aviso, erro } from './base.js';
+import { esc, avatar, abrirModal, fecharModal, aviso, erro } from './base.js';
 import { cartaoTarefa } from './tarefas.js';
 
-function progresso(tarefas) {
+export function progresso(tarefas) {
   const total = tarefas.length;
   const feitas = tarefas.filter((t) => t.status === 'concluida').length;
   return { total, feitas, pct: total ? Math.round((feitas / total) * 100) : 0 };
 }
 
+/** Avatares do líder e analistas responsáveis. */
+export function responsaveisHtml(p) {
+  const ids = [p.liderId, ...(p.analistaIds || [])].filter(Boolean);
+  if (!ids.length) return '';
+  return `<span class="responsaveis" title="${esc(ids.map(nomeDe).join(', '))}">${ids.map((id) => avatar(nomeDe(id), 'avatar-p')).join('')}</span>`;
+}
+
+export function periodoTexto(p) {
+  if (p.inicio && p.prazo) return `${fmtData(p.inicio)} → ${fmtData(p.prazo)}`;
+  if (p.prazo) return T('Entrega {d}', { d: fmtData(p.prazo) });
+  return '';
+}
+
+const porEntrega = (a, b) => (a.prazo || '9999').localeCompare(b.prazo || '9999') || nomeProjeto(a).localeCompare(nomeProjeto(b));
+
 export function renderProjetos() {
   const eu = estado.usuario;
-  const ordenar = (a, b) => (a.prazo || '9999').localeCompare(b.prazo || '9999');
-  const abertos = estado.projetos.filter((p) => p.status !== 'concluido').sort(ordenar);
-  const concluidos = estado.projetos.filter((p) => p.status === 'concluido').sort(ordenar);
+  const abertos = estado.projetos.filter((p) => !arquivado(p)).sort(porEntrega);
+  const arquivados = estado.projetos.filter(arquivado).sort((a, b) => (b.prazo || '').localeCompare(a.prazo || ''));
 
   const card = (p) => {
     const tarefas = estado.tarefas.filter((t) => t.projetoId === p.id);
     const pr = progresso(tarefas);
     const atras = tarefas.filter((t) => atrasada(t)).length;
     return `
-      <a class="card-projeto ${p.status === 'concluido' ? 'concluido' : ''}" href="#/projetos/${esc(p.id)}">
+      <a class="card-projeto ${arquivado(p) ? 'concluido' : ''}" href="#/projetos/${esc(p.id)}">
+        ${p.commessa ? `<span class="cp-commessa">${esc(p.commessa)}</span>` : ''}
         <h3>${esc(p.nome)}</h3>
-        ${p.descricao ? `<p>${esc(p.descricao)}</p>` : ''}
+        ${p.cliente || p.tipoServico ? `<p>${esc([p.cliente, p.tipoServico].filter(Boolean).join(' · '))}</p>` : ''}
+        ${periodoTexto(p) ? `<p class="cp-periodo">${esc(periodoTexto(p))}</p>` : ''}
         <div class="barra" aria-label="${esc(T('{p}% concluído', { p: pr.pct }))}"><span style="width:${pr.pct}%"></span></div>
         <div class="cp-rodape">
+          ${responsaveisHtml(p)}
           <span>${esc(T(ehGerente(eu) ? '{f}/{t} tarefas' : '{f}/{t} tarefas da equipe', { f: pr.feitas, t: pr.total }))}</span>
           ${atras ? `<span class="prazo atrasada">${esc(T('{n} atrasada(s)', { n: atras }))}</span>` : ''}
-          ${p.prazo ? `<span class="prazo">${esc(fmtData(p.prazo))}</span>` : ''}
         </div>
       </a>`;
   };
@@ -39,12 +59,12 @@ export function renderProjetos() {
   return `
     <header class="titulo-pagina">
       <h1>${esc(T('Projetos'))}</h1>
-      <p>${esc(T('{a} em aberto · {c} concluído(s)', { a: abertos.length, c: concluidos.length }))}</p>
+      <p>${esc(T('{a} em aberto · {c} arquivado(s)', { a: abertos.length, c: arquivados.length }))}</p>
       ${podeCriarProjeto(eu) ? `<button class="botao" data-novo-projeto>${esc(T('+ Novo projeto'))}</button>` : ''}
     </header>
     ${abertos.length ? `<div class="grade-projetos">${abertos.map(card).join('')}</div>` : `<p class="vazio">${esc(T('Nenhum projeto em aberto.'))}</p>`}
-    ${concluidos.length ? `<details class="grupo"><summary><h2>${esc(T('Concluídos'))} <span class="contador">${concluidos.length}</span></h2></summary>
-      <div class="grade-projetos">${concluidos.map(card).join('')}</div></details>` : ''}`;
+    ${arquivados.length ? `<details class="grupo arquivados"><summary><h2>${esc(T('Ver arquivados'))} <span class="contador">${arquivados.length}</span></h2></summary>
+      <div class="grade-projetos">${arquivados.map(card).join('')}</div></details>` : ''}`;
 }
 
 export function renderProjeto(id) {
@@ -53,19 +73,29 @@ export function renderProjeto(id) {
   const eu = estado.usuario;
   const tarefas = estado.tarefas.filter((t) => t.projetoId === id);
   const pr = progresso(tarefas);
+  const ficha = [
+    [T('Cliente'), p.cliente],
+    [T('Tipo de serviço'), p.tipoServico],
+    [T('Data de início'), p.inicio ? fmtData(p.inicio) : ''],
+    [T('Data de entrega'), p.prazo ? fmtData(p.prazo) : ''],
+    [T('Líder responsável'), p.liderId ? nomeDe(p.liderId) : ''],
+    [T('Analistas responsáveis'), (p.analistaIds || []).map(nomeDe).join(', ')]
+  ].filter(([, v]) => v);
   return `
     <a class="voltar" href="#/projetos">${esc(T('← Projetos'))}</a>
     <header class="titulo-pagina">
+      ${p.commessa ? `<span class="cp-commessa">${esc(p.commessa)}</span>` : ''}
       <h1>${esc(p.nome)}</h1>
       ${p.descricao ? `<p>${esc(p.descricao)}</p>` : ''}
       <p class="meta-centro">
-        ${p.status === 'concluido' ? `<span class="selo-texto ok">${esc(T('Concluído'))}</span>` : `<span class="selo-texto">${esc(T('Em aberto'))}</span>`}
-        ${p.prazo ? ` · ${esc(T('Prazo {d}', { d: fmtData(p.prazo) }))}` : ''} · ${esc(T('Criado por {nome}', { nome: nomeDe(p.criadoPor) }))}
+        ${arquivado(p) ? `<span class="selo-texto ok">${esc(T('Arquivado'))}</span>` : `<span class="selo-texto">${esc(T('Em aberto'))}</span>`}
+        · ${esc(T('Criado por {nome}', { nome: nomeDe(p.criadoPor) }))}
       </p>
+      ${ficha.length ? `<dl class="ficha">${ficha.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
       <div class="barra barra-larga" aria-label="${esc(T('{p}% concluído', { p: pr.pct }))}"><span style="width:${pr.pct}%"></span></div>
       <p class="meta-centro">${esc(T('{p}% · {f} de {t} tarefas concluídas', { p: pr.pct, f: pr.feitas, t: pr.total }))}${ehGerente(eu) ? '' : esc(T(' (da sua equipe)'))}</p>
       <div class="acoes">
-        ${p.status !== 'concluido' ? `<button class="botao" data-nova-tarefa data-projeto="${esc(p.id)}">${esc(T('+ Nova tarefa'))}</button>` : ''}
+        ${!arquivado(p) ? `<button class="botao" data-nova-tarefa data-projeto="${esc(p.id)}">${esc(T('+ Nova tarefa'))}</button>` : ''}
         ${podeCriarProjeto(eu) ? `<button class="botao-sec" data-editar-projeto="${esc(p.id)}">${esc(T('Editar projeto'))}</button>` : ''}
       </div>
     </header>
@@ -78,32 +108,92 @@ export function renderProjeto(id) {
     </div>`;
 }
 
+/* ------------------------------------------------------------ formulário */
+
+function checksAnalistas(liderId, marcados) {
+  const analistas = membrosDaEquipe(liderId, estado.usuarios).filter((u) => u.nivel === 'analista');
+  if (!liderId) return `<p class="meta">${esc(T('Escolha o líder para ver os analistas.'))}</p>`;
+  if (!analistas.length) return `<p class="meta">${esc(T('Este líder ainda não tem analistas.'))}</p>`;
+  return analistas.map((a) => `
+    <label class="check-pessoa"><input type="checkbox" name="analistaIds" value="${esc(a.id)}" ${marcados.includes(a.id) ? 'checked' : ''}>
+      ${avatar(a.nome, 'avatar-p')} ${esc(a.nome)}</label>`).join('');
+}
+
 export function formProjeto(id = null) {
   const p = id ? estado.projetos.find((x) => x.id === id) : null;
+  const eu = estado.usuario;
+  const lideres = estado.usuarios.filter((u) => u.nivel === 'lider');
+  const liderInicial = p ? p.liderId || '' : (eu.nivel === 'lider' ? eu.id : '');
+  const tipos = [...new Set(estado.projetos.map((x) => x.tipoServico).filter(Boolean)
+    .concat([T('Fabricação'), T('Manutenção'), T('Serviços gerais')]))];
+  const clientes = [...new Set(estado.projetos.map((x) => x.cliente).filter(Boolean))];
+  const v = (campo) => esc(p ? p[campo] || '' : '');
+  // Líder e analistas ficam guardados aqui para sobreviver ao redesenho ao vivo do modal.
+  const sel = { liderId: liderInicial, analistaIds: p ? [...(p.analistaIds || [])] : [] };
+
   abrirModal({
+    largo: true,
     render: () => `
-      <form class="form" data-form-projeto>
+      <form class="form" data-form-projeto novalidate>
         <header class="modal-topo"><h2>${esc(T(p ? 'Editar projeto' : 'Novo projeto'))}</h2><button type="button" class="fechar" data-fechar aria-label="${esc(T('Fechar'))}">×</button></header>
-        <label>${esc(T('Nome'))}<input name="nome" required maxlength="100" value="${esc(p ? p.nome : '')}" autofocus data-guardar="nome" data-rascunho></label>
-        <label>${esc(T('Descrição'))}<textarea name="descricao" rows="3" data-guardar="descricao" data-rascunho>${esc(p ? p.descricao : '')}</textarea></label>
         <div class="form-linha">
-          <label>${esc(T('Prazo'))}<input type="date" name="prazo" value="${esc(p ? p.prazo || '' : '')}" data-guardar="prazo" data-rascunho></label>
+          <label>${esc(T('Commessa'))}<input name="commessa" required placeholder="2025-006" pattern="\\d{4}-\\d{3}" maxlength="8" value="${v('commessa')}" autofocus data-guardar="commessa" data-rascunho></label>
+          <label class="col-2">${esc(T('Escopo'))}<input name="nome" required maxlength="100" placeholder="${esc(T('Ex.: Motorização, Plataforma TP01'))}" value="${v('nome')}" data-guardar="nome" data-rascunho></label>
+        </div>
+        <div class="form-linha">
+          <label>${esc(T('Cliente'))}<input name="cliente" required maxlength="80" list="lista-clientes" value="${v('cliente')}" data-guardar="cliente" data-rascunho></label>
+          <label>${esc(T('Tipo de serviço'))}<input name="tipoServico" required maxlength="60" list="lista-tipos" value="${v('tipoServico')}" data-guardar="tipoServico" data-rascunho></label>
+        </div>
+        <datalist id="lista-clientes">${clientes.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
+        <datalist id="lista-tipos">${tipos.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
+        <div class="form-linha">
+          <label>${esc(T('Data de início'))}<input type="date" name="inicio" required value="${v('inicio')}" data-guardar="inicio" data-rascunho></label>
+          <label>${esc(T('Data de entrega'))}<input type="date" name="prazo" required value="${v('prazo')}" data-guardar="prazo" data-rascunho></label>
           ${p ? `<label>${esc(T('Situação'))}<select name="status" data-guardar="status" data-rascunho>
-            <option value="aberto" ${p.status !== 'concluido' ? 'selected' : ''}>${esc(T('Em aberto'))}</option>
-            <option value="concluido" ${p.status === 'concluido' ? 'selected' : ''}>${esc(T('Concluído'))}</option>
+            <option value="aberto" ${!arquivado(p) ? 'selected' : ''}>${esc(T('Em aberto'))}</option>
+            <option value="concluido" ${arquivado(p) ? 'selected' : ''}>${esc(T('Concluído (arquivar)'))}</option>
           </select></label>` : ''}
         </div>
+        <label>${esc(T('Líder responsável'))}<select name="liderId" required data-lider-projeto>
+          <option value="">${esc(T('Escolha o líder'))}</option>
+          ${lideres.map((l) => `<option value="${esc(l.id)}" ${l.id === sel.liderId ? 'selected' : ''}>${esc(l.nome)}</option>`).join('')}
+        </select></label>
+        <fieldset class="analistas-campo"><legend>${esc(T('Analistas responsáveis'))}</legend>
+          <div data-analistas>${checksAnalistas(sel.liderId, sel.analistaIds)}</div>
+        </fieldset>
+        <label>${esc(T('Descrição'))}<textarea name="descricao" rows="2" data-guardar="descricao" data-rascunho>${v('descricao')}</textarea></label>
+        <p class="texto-alerta" data-erro-form hidden></p>
         <footer class="modal-rodape"><button type="button" class="botao-sec" data-fechar>${esc(T('Cancelar'))}</button><button class="botao">${esc(T(p ? 'Salvar' : 'Criar projeto'))}</button></footer>
       </form>`,
     eventos: {
       click: (ev) => { if (ev.target.closest('[data-fechar]')) fecharModal(); },
+      change: (ev) => {
+        if (ev.target.matches('[data-lider-projeto]')) {
+          sel.liderId = ev.target.value; sel.analistaIds = [];
+          ev.currentTarget.querySelector('[data-analistas]').innerHTML = checksAnalistas(sel.liderId, []);
+        }
+        if (ev.target.name === 'analistaIds') {
+          sel.analistaIds = [...ev.currentTarget.querySelectorAll('input[name="analistaIds"]:checked')].map((x) => x.value);
+        }
+      },
       submit: (ev) => {
         ev.preventDefault();
-        const d = Object.fromEntries(new FormData(ev.target));
-        const dados = { nome: d.nome.trim(), descricao: d.descricao.trim(), prazo: d.prazo || null };
+        const f = ev.target;
+        const fd = new FormData(f);
+        const d = Object.fromEntries(fd);
+        const dados = {
+          commessa: d.commessa.trim(), nome: d.nome.trim(), cliente: d.cliente.trim(), tipoServico: d.tipoServico.trim(),
+          inicio: d.inicio || null, prazo: d.prazo || null, liderId: d.liderId || null,
+          analistaIds: fd.getAll('analistaIds'), descricao: d.descricao.trim()
+        };
+        const falta = !dados.nome || !dados.cliente || !dados.tipoServico || !dados.inicio || !dados.prazo || !dados.liderId;
+        const msg = !commessaValida(dados.commessa) ? T('A commessa deve ter o formato AAAA-NNN (ex.: 2025-006).')
+          : falta ? T('Preencha todos os campos obrigatórios.')
+            : dados.inicio > dados.prazo ? T('A data de entrega não pode ser antes do início.') : '';
+        const caixaErro = f.querySelector('[data-erro-form]');
+        if (msg) { caixaErro.textContent = msg; caixaErro.hidden = false; return; }
         if (p) dados.status = d.status;
-        else dados.criadoPor = estado.usuario.id;
-        if (!dados.nome) return;
+        else dados.criadoPor = eu.id;
         fonte.salvarProjeto(dados, p ? p.id : null)
           .then(() => { fecharModal(); aviso(T(p ? 'Projeto salvo' : 'Projeto criado')); }).catch(erro);
       }

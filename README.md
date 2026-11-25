@@ -30,7 +30,11 @@ alguém mexa no navegador, o banco recusa o que o nível da pessoa não permite.
 - **Início** — saudação, data e hora ao vivo, semana do ano, indicadores e gráficos.
 - **Minhas tarefas** — o que está com você, agrupado por prazo.
 - **Quadro** — Kanban (A fazer · Em andamento · Concluída) com filtros; arraste para mudar o status.
-- **Projetos** — progresso de cada projeto e suas tarefas.
+- **Projetos** — cada projeto é um **escopo de uma commessa** (`2025-006 · Motorização`),
+  com cliente, tipo de serviço, início, entrega, 1 líder e analistas responsáveis.
+  Projeto concluído é **arquivado** (sai das listas e do Quadro; fica em “Ver arquivados”).
+- **Linha do tempo** — projetos em aberto na vertical, pela data de entrega, com
+  marcador de hoje e filtro **Todos / Só os meus**.
 - **Configurações** (clique no seu nome, no canto superior direito):
   - **Conta** — nome, tema claro/escuro e idioma (português/inglês).
   - **Equipe** — quem está na equipe; a gerência gera **links de convite** e define níveis.

@@ -98,6 +98,22 @@ const EN = {
     'Rostag Systems is a planner for teams to organize projects and tasks without losing any information, developed by Guilherme dos Santos Braz, a boilermaking process technician and Mechanical Engineering undergraduate at IFMG.',
   'Ver meu portfólio ↗': 'See my portfolio ↗', 'LinkedIn ↗': 'LinkedIn ↗', 'Versão {v}': 'Version {v}',
 
+  // Projetos v0.3 / linha do tempo
+  'Linha do tempo': 'Timeline', 'Commessa': 'Job number', 'Escopo': 'Scope', 'Ex.: Motorização, Plataforma TP01': 'E.g.: Motorization, Platform TP01',
+  'Cliente': 'Client', 'Tipo de serviço': 'Service type', 'Fabricação': 'Fabrication', 'Manutenção': 'Maintenance', 'Serviços gerais': 'General services',
+  'Data de início': 'Start date', 'Data de entrega': 'Delivery date', 'Entrega': 'Delivery', 'Entrega {d}': 'Delivery {d}',
+  'Líder responsável': 'Lead', 'Analistas responsáveis': 'Assigned analysts', 'Escolha o líder para ver os analistas.': 'Choose the leader to see the analysts.',
+  'Este líder ainda não tem analistas.': 'This leader has no analysts yet.', 'Concluído (arquivar)': 'Completed (archive)',
+  'A commessa deve ter o formato AAAA-NNN (ex.: 2025-006).': 'The job number must look like YYYY-NNN (e.g. 2025-006).',
+  'Preencha todos os campos obrigatórios.': 'Fill in all required fields.', 'A data de entrega não pode ser antes do início.': 'The delivery date can’t be before the start date.',
+  '{a} em aberto · {c} arquivado(s)': '{a} open · {c} archived', 'Ver arquivados': 'View archived', 'Arquivado': 'Archived',
+  'Projetos em aberto, pela data de entrega': 'Open projects, by delivery date', 'Todos': 'All', 'Só os meus': 'Only mine',
+  'Nenhum projeto em aberto com você como responsável.': 'No open projects with you assigned.', 'Sem data de entrega': 'No delivery date',
+  'entrega': 'delivery', 'Atrasado {n} dia(s)': '{n} day(s) late', 'Começa em {n} dia(s)': 'Starts in {n} day(s)', 'Entrega hoje': 'Due today',
+  'Faltam {n} dia(s)': '{n} day(s) left', 'Tempo decorrido': 'Time elapsed', '{p}% das tarefas concluídas': '{p}% of tasks done',
+  'Comece convidando um líder': 'Start by inviting a leader',
+  'Toda tarefa pertence à equipe de um líder. Convide o primeiro líder para começar a criar tarefas.': 'Every task belongs to a leader’s team. Invite the first leader to start creating tasks.',
+
   // Erros
   'Você não tem permissão para isso.': 'You don’t have permission to do that.', 'Algo deu errado.': 'Something went wrong.',
   'No modo demonstração não há cadastro.': 'There is no sign-up in demo mode.'

@@ -4,7 +4,7 @@
 import { hojeISO } from '../dominio/datas.js';
 import { tarefasVisiveis, VALIDADE_CONVITE_MS } from '../dominio/regras.js';
 
-const CHAVE = 'rostag-systems-demo-v1';
+const CHAVE = 'rostag-systems-demo-v2';
 const CHAVE_SESSAO = 'rostag-systems-demo-sessao';
 
 let banco = null;
@@ -29,10 +29,16 @@ function semente() {
     { id: 'u-elisa', nome: 'Elisa Rocha', email: 'elisa@demo', nivel: 'analista', liderId: 'u-bruno' }
   ];
   const p = [
-    { id: 'p-site', nome: 'Novo site institucional', descricao: 'Reformular o site da empresa.', status: 'aberto', prazo: diaRel(30), criadoPor: 'u-gui', criadoEm: msRel(-20) },
-    { id: 'p-linha', nome: 'Melhoria da linha 2', descricao: 'Reduzir paradas na linha 2.', status: 'aberto', prazo: diaRel(45), criadoPor: 'u-bruno', criadoEm: msRel(-15) },
-    { id: 'p-iso', nome: 'Auditoria ISO 9001', descricao: 'Preparar a documentação para a auditoria.', status: 'aberto', prazo: diaRel(12), criadoPor: 'u-gui', criadoEm: msRel(-10) },
-    { id: 'p-inv', nome: 'Inventário anual', descricao: '', status: 'concluido', prazo: diaRel(-5), criadoPor: 'u-ana', criadoEm: msRel(-40) }
+    { id: 'p-site', commessa: '2026-014', nome: 'Novo site institucional', cliente: 'Rostag', tipoServico: 'Serviços gerais', descricao: 'Reformular o site da empresa.',
+      status: 'aberto', inicio: diaRel(-20), prazo: diaRel(30), liderId: 'u-ana', analistaIds: ['u-carla', 'u-diego'], criadoPor: 'u-gui', criadoEm: msRel(-20) },
+    { id: 'p-linha', commessa: '2025-006', nome: 'Motorização', cliente: 'Usina Vale Verde', tipoServico: 'Fabricação', descricao: 'Motorização da linha 2.',
+      status: 'aberto', inicio: diaRel(-15), prazo: diaRel(45), liderId: 'u-bruno', analistaIds: ['u-elisa'], criadoPor: 'u-bruno', criadoEm: msRel(-15) },
+    { id: 'p-tp01', commessa: '2025-006', nome: 'Plataforma TP01', cliente: 'Usina Vale Verde', tipoServico: 'Fabricação', descricao: '',
+      status: 'aberto', inicio: diaRel(5), prazo: diaRel(60), liderId: 'u-bruno', analistaIds: [], criadoPor: 'u-bruno', criadoEm: msRel(-3) },
+    { id: 'p-iso', commessa: '2026-002', nome: 'Auditoria ISO 9001', cliente: 'Rostag', tipoServico: 'Serviços gerais', descricao: 'Preparar a documentação para a auditoria.',
+      status: 'aberto', inicio: diaRel(-30), prazo: diaRel(-2), liderId: 'u-ana', analistaIds: ['u-diego'], criadoPor: 'u-gui', criadoEm: msRel(-10) },
+    { id: 'p-inv', commessa: '2025-031', nome: 'Inventário anual', cliente: 'Rostag', tipoServico: 'Manutenção', descricao: '',
+      status: 'concluido', inicio: diaRel(-40), prazo: diaRel(-5), liderId: 'u-ana', analistaIds: ['u-carla'], criadoPor: 'u-ana', criadoEm: msRel(-40) }
   ];
   const t = (o) => {
     const criadoEm = o.criadoEm || msRel(-7);

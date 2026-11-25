@@ -2,7 +2,7 @@
 
 import { estado, nomeDe, projetoDe } from '../estado.js';
 import { saudacao, dataHoraCurta, semanaISO, fmtData } from '../dominio/datas.js';
-import { indicadores, abertasPor, atrasada, ehGerente, equipeDe, NIVEIS } from '../dominio/regras.js';
+import { indicadores, abertasPor, atrasada, ehGerente, equipeDe, NIVEIS, nomeProjeto, tarefasAtivas, podeCriarProjeto } from '../dominio/regras.js';
 import { t } from '../i18n.js';
 import { pref } from '../prefs.js';
 import { esc } from './base.js';
@@ -40,13 +40,25 @@ function tile(rotulo, valor, extra = '', dica = '') {
 
 export function renderInicio() {
   const u = estado.usuario;
-  const ind = indicadores(estado.tarefas, estado.projetos);
+  const tarefas = tarefasAtivas(estado.tarefas, estado.projetos);
+  const ind = indicadores(tarefas, estado.projetos);
+  const semEquipe = !estado.usuarios.some((x) => x.nivel === 'lider');
   const alcance = ehGerente(u) ? t('Todas as equipes') : t('Equipe de {nome}', { nome: nomeDe(equipeDe(u)) });
-  const atrasadas = estado.tarefas.filter((x) => atrasada(x)).sort((a, b) => a.prazo.localeCompare(b.prazo));
+  const atrasadas = tarefas.filter((x) => atrasada(x)).sort((a, b) => a.prazo.localeCompare(b.prazo));
 
   return `
     ${cabecalho()}
     <p class="alcance">${esc(t(NIVEIS[u.nivel]))} · ${esc(alcance)}</p>
+    <div class="acoes acoes-inicio">
+      ${semEquipe ? '' : `<button class="botao" data-nova-tarefa>${esc(t('+ Nova tarefa'))}</button>`}
+      ${podeCriarProjeto(u) ? `<button class="botao-sec" data-novo-projeto>${esc(t('+ Novo projeto'))}</button>` : ''}
+    </div>
+    ${semEquipe && ehGerente(u) ? `
+      <div class="cartao aviso-inicio">
+        <strong>${esc(t('Comece convidando um líder'))}</strong>
+        <p>${esc(t('Toda tarefa pertence à equipe de um líder. Convide o primeiro líder para começar a criar tarefas.'))}</p>
+        <a class="botao" href="#/config/equipe">${esc(t('Convidar pessoa'))}</a>
+      </div>` : ''}
 
     <section class="tiles" aria-label="Indicadores">
       ${tile('Projetos em aberto', ind.projetosAbertos)}
@@ -74,7 +86,7 @@ export function renderInicio() {
         ${atrasadas.length ? `<ul class="lista-simples">${atrasadas.slice(0, 8).map((x) => `
           <li><button class="linha-tarefa" data-abrir-tarefa="${esc(x.id)}">
             <span class="selo selo-atrasada" aria-hidden="true">!</span>
-            <span class="lt-titulo">${esc(x.titulo)}<small>${esc((projetoDe(x.projetoId) || {}).nome || t('Sem projeto'))} · ${esc(nomeDe(x.responsavelId))}</small></span>
+            <span class="lt-titulo">${esc(x.titulo)}<small>${esc(nomeProjeto(projetoDe(x.projetoId)) || t('Sem projeto'))} · ${esc(nomeDe(x.responsavelId))}</small></span>
             <span class="lt-prazo atrasada">${esc(fmtData(x.prazo))}</span>
           </button></li>`).join('')}</ul>` : `<p class="vazio">${esc(t('Nenhuma tarefa atrasada. 👏'))}</p>`}
       </article>
@@ -140,7 +152,7 @@ export function montarInicio(raiz) {
   graficos = [];
   const Chart = window.Chart;
   if (!Chart) return;
-  const tarefas = estado.tarefas;
+  const tarefas = tarefasAtivas(estado.tarefas, estado.projetos);
   const c = cores();
 
   // 1. Status (rosca).
@@ -158,7 +170,7 @@ export function montarInicio(raiz) {
 
   // 2. Por projeto (só projetos com tarefas visíveis).
   const porProj = abertasPor('projetoId', tarefas);
-  const projs = [...porProj.keys()].map((id) => ({ id, nome: (projetoDe(id) || {}).nome || t('Sem projeto'), g: porProj.get(id) }))
+  const projs = [...porProj.keys()].map((id) => ({ id, nome: nomeProjeto(projetoDe(id)) || t('Sem projeto'), g: porProj.get(id) }))
     .sort((a, b) => (b.g.afazer + b.g.andamento) - (a.g.afazer + a.g.andamento));
   ajustarAltura(raiz.querySelector('#g-projetos-caixa'), projs.length);
   graficos.push(barrasEmpilhadas(raiz.querySelector('#g-projetos'), projs.map((p) => cortar(p.nome)),

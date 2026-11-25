@@ -119,3 +119,31 @@ test('convite: vale até vencer e só uma vez', () => {
   assert.ok(!conviteValido({ usado: false, expiraEm: 500 }, agora));
   assert.ok(!conviteValido(null, agora));
 });
+
+import { commessaValida, nomeProjeto, projetoEhMeu, tarefasAtivas, situacaoPeriodo } from '../js/dominio/regras.js';
+
+test('commessa AAAA-NNN e nome do projeto', () => {
+  assert.ok(commessaValida('2025-006'));
+  assert.ok(!commessaValida('25-006') && !commessaValida('2025-6') && !commessaValida(''));
+  assert.equal(nomeProjeto({ commessa: '2025-006', nome: 'Plataforma TP01' }), '2025-006 · Plataforma TP01');
+  assert.equal(nomeProjeto({ nome: 'Antigo' }), 'Antigo');
+});
+
+test('projeto "meu": líder, analista responsável ou quem criou', () => {
+  const p = { liderId: 'ana', analistaIds: ['carla'], criadoPor: 'g' };
+  assert.ok(projetoEhMeu(ana, p) && projetoEhMeu(carla, p) && projetoEhMeu(ger, p));
+  assert.ok(!projetoEhMeu(bruno, p));
+});
+
+test('tarefas de projeto arquivado somem', () => {
+  const projetos = [{ id: 'a', status: 'aberto' }, { id: 'b', status: 'concluido' }];
+  const tarefas = [{ id: 1, projetoId: 'a' }, { id: 2, projetoId: 'b' }, { id: 3, projetoId: null }];
+  assert.deepEqual(tarefasAtivas(tarefas, projetos).map((t) => t.id), [1, 3]);
+});
+
+test('situação do período do projeto', () => {
+  assert.deepEqual(situacaoPeriodo({ inicio: '2026-11-01', prazo: '2026-12-01' }, '2026-11-16'), { tipo: 'andamento', dias: 15, pct: 50 });
+  assert.equal(situacaoPeriodo({ inicio: '2026-11-01', prazo: '2026-11-20' }, '2026-11-24').tipo, 'atrasado');
+  assert.equal(situacaoPeriodo({ inicio: '2026-11-01', prazo: '2026-11-20' }, '2026-11-24').dias, 4);
+  assert.equal(situacaoPeriodo({ inicio: '2026-12-01', prazo: '2026-12-20' }, '2026-11-24').tipo, 'futuro');
+});

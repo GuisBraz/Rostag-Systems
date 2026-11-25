@@ -3,7 +3,7 @@
 import { estado, fonte, nomeDe, projetoDe } from '../estado.js';
 import {
   STATUS, PRIORIDADES, nomeStatus, nomePrioridade, atrasada, ehGerente, equipeDe,
-  membrosDaEquipe, podeVerTarefa
+  membrosDaEquipe, podeVerTarefa, nomeProjeto, tarefasAtivas, arquivado
 } from '../dominio/regras.js';
 import { fmtData, fmtDataHora, hojeISO } from '../dominio/datas.js';
 import { t as T } from '../i18n.js';
@@ -22,7 +22,7 @@ export function textoHistorico(h) {
     case 'responsavel': return T('passou a tarefa para {v}', { v: nomeDe(v) });
     case 'prazo': return v ? T('mudou o prazo para {v}', { v: fmtData(v) }) : T('removeu o prazo');
     case 'prioridade': return T('mudou a prioridade para {v}', { v: T(nomePrioridade(v)) });
-    case 'projeto': return v ? T('moveu para o projeto “{v}”', { v: (projetoDe(v) || {}).nome || '—' }) : T('tirou a tarefa do projeto');
+    case 'projeto': return v ? T('moveu para o projeto “{v}”', { v: nomeProjeto(projetoDe(v)) || '—' }) : T('tirou a tarefa do projeto');
     case 'check_add': return T('adicionou “{v}” ao checklist', { v });
     case 'check_rem': return T('removeu o item “{v}” do checklist', { v });
     case 'check_on': return T('marcou “{v}”', { v });
@@ -46,7 +46,7 @@ export function cartaoTarefa(t, { arrastavel = false } = {}) {
   return `
     <article class="card-tarefa prio-${esc(t.prioridade)} ${t.status === 'concluida' ? 'feita' : ''}"
       data-abrir-tarefa="${esc(t.id)}" ${arrastavel ? `draggable="true" data-arrastar="${esc(t.id)}"` : ''} tabindex="0">
-      ${proj ? `<span class="ct-projeto">${esc(proj.nome)}</span>` : ''}
+      ${proj ? `<span class="ct-projeto">${esc(nomeProjeto(proj))}</span>` : ''}
       <h3 class="ct-titulo">${esc(t.titulo)}</h3>
       <div class="ct-rodape">
         ${avatar(nomeDe(t.responsavelId))}
@@ -62,7 +62,7 @@ export function cartaoTarefa(t, { arrastavel = false } = {}) {
 
 export function renderMinhas() {
   const eu = estado.usuario;
-  const minhas = estado.tarefas.filter((t) => t.responsavelId === eu.id);
+  const minhas = tarefasAtivas(estado.tarefas, estado.projetos).filter((t) => t.responsavelId === eu.id);
   const hoje = hojeISO();
   const em7 = hojeISO(new Date(Date.now() + 7 * 86400000));
   const abertas = minhas.filter((t) => t.status !== 'concluida').sort(porPrazo);
@@ -118,7 +118,7 @@ export function renderQuadro() {
   const pessoas = ehGerente(eu)
     ? estado.usuarios.filter((u) => u.nivel === 'lider' || u.nivel === 'analista')
     : membrosDaEquipe(equipeDe(eu), estado.usuarios);
-  const lista = filtrar(estado.tarefas);
+  const lista = filtrar(tarefasAtivas(estado.tarefas, estado.projetos));
   const opt = (v, txt, sel) => `<option value="${esc(v)}" ${v === sel ? 'selected' : ''}>${esc(txt)}</option>`;
   const alcance = ehGerente(eu) ? T('Todas as equipes') : T('Equipe de {nome}', { nome: nomeDe(equipeDe(eu)) });
 
@@ -130,7 +130,7 @@ export function renderQuadro() {
     </header>
     <div class="filtros" role="search">
       <input type="search" placeholder="${esc(T('Buscar tarefa…'))}" value="${esc(filtros.busca)}" data-filtro="busca" aria-label="${esc(T('Buscar'))}">
-      <select data-filtro="projeto" aria-label="${esc(T('Projeto'))}">${opt('', T('Todos os projetos'), filtros.projeto)}${estado.projetos.map((p) => opt(p.id, p.nome, filtros.projeto)).join('')}</select>
+      <select data-filtro="projeto" aria-label="${esc(T('Projeto'))}">${opt('', T('Todos os projetos'), filtros.projeto)}${estado.projetos.filter((p) => !arquivado(p)).map((p) => opt(p.id, nomeProjeto(p), filtros.projeto)).join('')}</select>
       <select data-filtro="responsavel" aria-label="${esc(T('Responsável'))}">${opt('', T('Todos os responsáveis'), filtros.responsavel)}${pessoas.map((u) => opt(u.id, u.nome, filtros.responsavel)).join('')}</select>
       ${ehGerente(eu) ? `<select data-filtro="equipe" aria-label="${esc(T('Equipe'))}">${opt('', T('Todas as equipes'), filtros.equipe)}${lideres.map((l) => opt(l.id, T('Equipe {nome}', { nome: l.nome }), filtros.equipe)).join('')}</select>` : ''}
       ${Object.values(filtros).some(Boolean) ? `<button class="botao-link" data-limpar-filtros>${esc(T('Limpar'))}</button>` : ''}
@@ -198,8 +198,12 @@ export function novaTarefa({ projetoId = '' } = {}) {
   const equipes = equipesQuePodeUsar();
   if (!equipes.length) { aviso(T('Ainda não há equipes. Cadastre um líder em Equipe.'), 'erro'); return; }
   const eu = estado.usuario;
-  const form = { equipeId: equipes[0].id, responsavelId: ehGerente(eu) ? '' : eu.id };
   const projAbertos = estado.projetos.filter((p) => p.status !== 'concluido');
+  const equipeDoProjeto = (pid) => {
+    const p = projAbertos.find((x) => x.id === pid);
+    return p && equipes.some((e) => e.id === p.liderId) ? p.liderId : null;
+  };
+  const form = { equipeId: equipeDoProjeto(projetoId) || equipes[0].id, responsavelId: ehGerente(eu) ? '' : eu.id };
 
   abrirModal({
     render: () => `
@@ -207,9 +211,9 @@ export function novaTarefa({ projetoId = '' } = {}) {
         <header class="modal-topo"><h2>${esc(T('Nova tarefa'))}</h2><button type="button" class="fechar" data-fechar aria-label="${esc(T('Fechar'))}">×</button></header>
         <label>${esc(T('Título'))}<input name="titulo" required maxlength="140" autofocus data-guardar="titulo" data-rascunho></label>
         <div class="form-linha">
-          <label>${esc(T('Projeto'))}<select name="projetoId" data-guardar="projetoId" data-rascunho>
+          <label>${esc(T('Projeto'))}<select name="projetoId" data-projeto-form data-guardar="projetoId" data-rascunho>
             <option value="">${esc(T('Sem projeto'))}</option>
-            ${projAbertos.map((p) => `<option value="${esc(p.id)}" ${p.id === projetoId ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}
+            ${projAbertos.map((p) => `<option value="${esc(p.id)}" ${p.id === projetoId ? 'selected' : ''}>${esc(nomeProjeto(p))}</option>`).join('')}
           </select></label>
           ${equipes.length > 1 ? `<label>${esc(T('Equipe'))}<select name="equipeId" data-equipe>
             ${equipes.map((e) => `<option value="${esc(e.id)}" ${e.id === form.equipeId ? 'selected' : ''}>${esc(e.nome)}</option>`).join('')}
@@ -235,6 +239,15 @@ export function novaTarefa({ projetoId = '' } = {}) {
           ev.currentTarget.querySelector('[data-responsavel]').innerHTML = `<option value="">${esc(T('Escolha…'))}</option>${opcoesResponsavel(form.equipeId, '')}`;
         }
         if (ev.target.matches('[data-responsavel]')) form.responsavelId = ev.target.value;
+        if (ev.target.matches('[data-projeto-form]')) {
+          // Projeto com líder responsável: a tarefa vai para a equipe dele.
+          const eq = equipeDoProjeto(ev.target.value);
+          const selEq = ev.currentTarget.querySelector('[data-equipe]');
+          if (eq && selEq && eq !== form.equipeId) {
+            selEq.value = eq; form.equipeId = eq; form.responsavelId = '';
+            ev.currentTarget.querySelector('[data-responsavel]').innerHTML = `<option value="">${esc(T('Escolha…'))}</option>${opcoesResponsavel(eq, '')}`;
+          }
+        }
       },
       submit: (ev) => {
         ev.preventDefault();
@@ -324,7 +337,7 @@ export function abrirTarefa(id) {
             </select></label>
             <label>${esc(T('Projeto'))}<select data-campo="projetoId">
               <option value="">${esc(T('Sem projeto'))}</option>
-              ${estado.projetos.filter((p) => p.status !== 'concluido' || p.id === t.projetoId).map((p) => `<option value="${esc(p.id)}" ${p.id === t.projetoId ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}
+              ${estado.projetos.filter((p) => p.status !== 'concluido' || p.id === t.projetoId).map((p) => `<option value="${esc(p.id)}" ${p.id === t.projetoId ? 'selected' : ''}>${esc(nomeProjeto(p))}</option>`).join('')}
             </select></label>
             <p class="meta">${T('Equipe de <strong>{nome}</strong>', { nome: esc(nomeDe(t.equipeId)) })}</p>
             <p class="meta">${T('Criada por <strong>{nome}</strong>', { nome: esc(nomeDe(t.criadoPor)) })}<br>${esc(fmtDataHora(t.criadoEm))}</p>

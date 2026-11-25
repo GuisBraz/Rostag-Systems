@@ -10,6 +10,7 @@ import { renderInicio, montarInicio, desmontarInicio, primeiroNome } from './ui/
 import { renderMinhas, renderQuadro, montarQuadro, novaTarefa, abrirTarefa } from './ui/tarefas.js';
 import { renderProjetos, renderProjeto, formProjeto } from './ui/projetos.js';
 import { renderConfig, montarConfig } from './ui/config.js';
+import { renderLinha, montarLinha } from './ui/linha.js';
 import { saudacao, dataHoraCurta, semanaISO } from './dominio/datas.js';
 
 aplicarTema();
@@ -20,6 +21,7 @@ const ROTAS = [
   { id: 'minhas', nome: 'Minhas tarefas', render: renderMinhas },
   { id: 'quadro', nome: 'Quadro', render: renderQuadro, montar: montarQuadro },
   { id: 'projetos', nome: 'Projetos', render: (p) => (p ? renderProjeto(p) : renderProjetos()) },
+  { id: 'linha', nome: 'Linha do tempo', render: renderLinha, montar: montarLinha },
   { id: 'config', nome: 'Configurações', render: (p) => renderConfig(p), montar: montarConfig, oculto: true }
 ];
 

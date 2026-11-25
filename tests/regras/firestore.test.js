@@ -141,3 +141,24 @@ test('quem cria convite: gerência (líder/analista); gerente só o ADM', async 
   await assertFails(como(L1).doc('convites/c6').set(conv('analista', L1, L1)));
   await assertSucceeds(como(G).doc('convites/bom').delete());
 });
+
+/* ---------------------------------------------------------------- projetos */
+
+const projeto = (extra = {}) => ({ commessa: '2025-006', nome: 'Motorização', cliente: 'C', tipoServico: 'Fabricação',
+  inicio: '2026-01-01', prazo: '2026-02-01', liderId: L1, analistaIds: [N1], status: 'aberto', criadoPor: L1, criadoEm: 1, ...extra });
+
+test('projeto: líder cria com commessa válida; analista não cria', async () => {
+  await assertSucceeds(como(L1).collection('projetos').add(projeto()));
+  await assertSucceeds(como(L1).collection('projetos').add(projeto({ nome: 'Plataforma TP01' }))); // mesma commessa, outro escopo
+  await assertFails(como(L1).collection('projetos').add(projeto({ commessa: '25-6' })));
+  await assertFails(como(L1).collection('projetos').add(projeto({ liderId: null })));
+  await assertFails(como(N1).collection('projetos').add(projeto({ criadoPor: N1 })));
+});
+
+test('projeto: arquivar (concluído) e todos os ativos leem', async () => {
+  await env.withSecurityRulesDisabled((ctx) => ctx.firestore().doc('projetos/p1').set(projeto()));
+  await assertSucceeds(como(N2).doc('projetos/p1').get());
+  await assertSucceeds(como(L1).doc('projetos/p1').update({ status: 'concluido' }));
+  await assertFails(como(L1).doc('projetos/p1').update({ commessa: 'x' }));
+  await assertFails(como(P).doc('projetos/p1').get());
+});

@@ -364,6 +364,64 @@ details.grupo > summary h2::after { content: ' ▾'; color: var(--tinta-3); font
 .abas button { border: 0; background: none; padding: 8px; border-radius: 6px; cursor: pointer; font-weight: 500; color: var(--tinta-2); }
 .abas button.ativo { background: var(--superficie); color: var(--royal); font-weight: 600; box-shadow: var(--sombra); }
 
+/* ---------------------------------------------------------------- projetos v0.3 */
+.cp-commessa {
+  align-self: center; display: inline-block; font-size: .75rem; font-weight: 700; letter-spacing: .04em;
+  color: var(--royal); background: var(--royal-claro); padding: 2px 10px; border-radius: 999px; font-variant-numeric: tabular-nums;
+}
+.cp-periodo { font-variant-numeric: tabular-nums; }
+.responsaveis { display: inline-flex; }
+.responsaveis .avatar { border: 2px solid var(--superficie); margin-left: -6px; }
+.responsaveis .avatar:first-child { margin-left: 0; }
+.ficha { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; width: min(720px, 100%); margin: 12px 0 4px; }
+.ficha div { background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-p); padding: 8px 12px; }
+.ficha dt { font-size: .74rem; color: var(--tinta-2); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+.ficha dd { margin: 2px 0 0; font-weight: 600; }
+.analistas-campo { border: 1px solid var(--borda-forte); border-radius: var(--raio-p); padding: 8px 12px 10px; margin: 0; }
+.analistas-campo legend { font-size: .82rem; font-weight: 600; color: var(--tinta-2); padding: 0 4px; }
+.analistas-campo [data-analistas] { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.analistas-campo .meta { margin: 0; }
+.form .check-pessoa { flex-direction: row; align-items: center; gap: 6px; font-weight: 500; color: var(--tinta); cursor: pointer; }
+.check-pessoa input { accent-color: var(--royal); width: 16px; height: 16px; }
+.arquivados summary h2 { color: var(--tinta-2); }
+.acoes-inicio { margin: -14px 0 26px; }
+.aviso-inicio { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 22px; border-top: 3px solid var(--celeste); }
+.aviso-inicio p { margin: 0; color: var(--tinta-2); }
+
+/* ---------------------------------------------------------------- linha do tempo */
+.linha { list-style: none; margin: 0 auto; padding: 0; max-width: 780px; position: relative; }
+.linha::before { content: ''; position: absolute; left: 112px; top: 0; bottom: 0; width: 2px; background: var(--borda-forte); }
+.linha-mes { position: relative; padding: 18px 0 10px 136px; }
+.linha-mes span { font-weight: 700; font-size: .95rem; color: var(--tinta-2); }
+.linha-hoje { position: relative; padding: 10px 0 10px 136px; }
+.linha-hoje::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px dashed var(--celeste); }
+.linha-hoje span { position: relative; background: var(--celeste); color: #fff; font-weight: 700; font-size: .8rem; padding: 3px 12px; border-radius: 999px; }
+.linha-item { display: grid; grid-template-columns: 96px 32px minmax(0, 1fr); align-items: start; gap: 0; margin-bottom: 14px; }
+.li-data { text-align: right; padding: 14px 4px 0 0; display: flex; flex-direction: column; font-variant-numeric: tabular-nums; }
+.li-data small { color: var(--tinta-3); font-size: .72rem; }
+.li-ponto { width: 14px; height: 14px; border-radius: 50%; background: var(--royal); border: 3px solid var(--fundo); box-shadow: 0 0 0 2px var(--royal); margin: 18px 0 0 9px; position: relative; z-index: 1; }
+.li-card {
+  display: flex; flex-direction: column; gap: 6px; color: var(--tinta);
+  background: var(--superficie); border: 1px solid var(--borda); border-left: 4px solid var(--royal);
+  border-radius: var(--raio); box-shadow: var(--sombra); padding: 14px 16px; transition: border-color .15s, transform .15s;
+}
+.li-card:hover { text-decoration: none; transform: translateX(2px); border-color: var(--celeste); }
+.li-card h3 { font-size: 1.02rem; }
+.li-topo { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.li-topo .cp-commessa { align-self: auto; }
+.li-sit { font-size: .8rem; font-weight: 600; color: var(--tinta-2); }
+.li-cliente { margin: 0; color: var(--tinta-2); font-size: .88rem; }
+.li-periodo { display: flex; align-items: center; gap: 10px; font-size: .8rem; color: var(--tinta-2); font-variant-numeric: tabular-nums; }
+.li-tempo { flex: 1; height: 6px; border-radius: 999px; background: var(--superficie-2); overflow: hidden; }
+.li-tempo span { display: block; height: 100%; background: var(--celeste); border-radius: 999px; }
+.li-rodape { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: .82rem; color: var(--tinta-2); }
+.sit-atrasado .li-card { border-left-color: var(--alerta); }
+.sit-atrasado .li-ponto { background: var(--alerta); box-shadow: 0 0 0 2px var(--alerta); }
+.sit-atrasado .li-sit, .sit-atrasado .li-data strong { color: var(--alerta); }
+.sit-atrasado .li-tempo span { background: var(--alerta); }
+.sit-futuro .li-card { border-left-color: var(--celeste); }
+.sit-futuro .li-ponto { background: var(--superficie); box-shadow: 0 0 0 2px var(--celeste); }
+
 /* ---------------------------------------------------------------- configurações */
 .abas-config { display: flex; justify-content: center; gap: 6px; margin: -8px auto 24px; flex-wrap: wrap; }
 .abas-config a { padding: 9px 20px; border-radius: 999px; color: var(--tinta-2); font-weight: 500; border: 1px solid var(--borda); background: var(--superficie); }
@@ -418,6 +476,12 @@ body { padding-bottom: 44px; }
   .usuario div { display: none; }
 }
 @media (max-width: 760px) {
+  .linha::before { left: 14px; }
+  .linha-mes, .linha-hoje { padding-left: 38px; }
+  .linha-item { grid-template-columns: 30px minmax(0, 1fr); }
+  .li-data { grid-column: 2; grid-row: 1; flex-direction: row; gap: 6px; text-align: left; padding: 0 0 4px; }
+  .li-ponto { grid-column: 1; grid-row: 1 / span 2; margin: 4px 0 0 8px; }
+  .li-card { grid-column: 2; }
   .rodape-cargo { display: none; }
   .form-nome { flex-direction: column; align-items: stretch; }
   .topo { flex-wrap: wrap; gap: 8px 12px; padding: 10px 16px; }

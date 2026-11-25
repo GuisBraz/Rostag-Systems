@@ -74,11 +74,19 @@ service cloud.firestore {
     // --------------------------------------------------------------- projetos
     match /projetos/{id} {
       allow read: if ativo();
+      // Projeto = escopo de uma commessa (AAAA-NNN, pode repetir), com líder responsável.
+      function projetoValido() {
+        return request.resource.data.nome is string && request.resource.data.nome.size() > 0
+          && request.resource.data.commessa is string && request.resource.data.commessa.matches('^[0-9]{4}-[0-9]{3}$')
+          && request.resource.data.liderId is string
+          && request.resource.data.analistaIds is list;
+      }
       allow create: if ativo() && nivel() in ['adm', 'gerente', 'lider']
         && request.resource.data.criadoPor == request.auth.uid
-        && request.resource.data.nome is string && request.resource.data.nome.size() > 0;
+        && projetoValido();
       allow update: if ativo() && nivel() in ['adm', 'gerente', 'lider']
-        && !mudou().hasAny(['criadoPor', 'criadoEm']);
+        && !mudou().hasAny(['criadoPor', 'criadoEm'])
+        && projetoValido();
       allow delete: if gerente();
     }
 
