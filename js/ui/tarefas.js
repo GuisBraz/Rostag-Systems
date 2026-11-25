@@ -5,7 +5,7 @@ import {
   STATUS, PRIORIDADES, nomeStatus, nomePrioridade, atrasada, ehGerente, equipeDe,
   membrosDaEquipe, podeVerTarefa, nomeProjeto, tarefasAtivas, arquivado
 } from '../dominio/regras.js';
-import { fmtData, fmtDataHora, hojeISO } from '../dominio/datas.js';
+import { fmtData, fmtDataHora, hojeISO, anoCompleto } from '../dominio/datas.js';
 import { t as T } from '../i18n.js';
 import { esc, avatar, abrirModal, fecharModal, aviso, erro, confirmar } from './base.js';
 
@@ -331,7 +331,7 @@ export function abrirTarefa(id) {
             <label>${esc(T('Responsável'))}<select data-campo="responsavelId">
               ${opcoesResponsavel(t.equipeId, t.responsavelId)}
             </select></label>
-            <label>${esc(T('Prazo'))}<input type="date" value="${esc(t.prazo || '')}" data-campo="prazo"></label>
+            <label>${esc(T('Prazo'))}<input type="date" value="${esc(t.prazo || '')}" data-campo="prazo" data-guardar="prazo"></label>
             <label>${esc(T('Prioridade'))}<select data-campo="prioridade">
               ${PRIORIDADES.map((p) => `<option value="${p.id}" ${p.id === t.prioridade ? 'selected' : ''}>${esc(T(p.nome))}</option>`).join('')}
             </select></label>
@@ -378,18 +378,43 @@ export function abrirTarefa(id) {
           salvar({ checklist }, { acao: ev.target.checked ? 'check_on' : 'check_off', valor: t.checklist[i].texto });
           return;
         }
-        const campo = ev.target.dataset.campo;
+        // Datas são salvas ao sair do campo (focusout), não a cada tecla.
+        if (ev.target.type === 'date') return;
+        salvarCampo(ev.target);
+      },
+      focusout: (ev) => {
+        if (ev.target.type === 'date' && ev.target.dataset.campo) salvarCampo(ev.target);
+      },
+      submit: (ev) => {
+        ev.preventDefault();
+        submeter(ev);
+      },
+      keydown: (ev) => {
+        // Ctrl+Enter envia o comentário.
+        if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey) && ev.target.closest('[data-comentar]')) {
+          ev.target.closest('form').requestSubmit();
+        }
+      }
+    }
+  });
+
+  function salvarCampo(el) {
+        const t = tarefa();
+        if (!t) return;
+        const campo = el.dataset.campo;
         if (!campo) return;
-        let valor = ev.target.value;
+        let valor = el.value;
+        // Data incompleta (ano 0002 etc.): não salva; volta ao valor gravado.
+        if (el.type === 'date' && valor && !anoCompleto(valor)) { el.value = t[campo] || ''; return; }
         if (campo === 'titulo') { valor = valor.trim(); if (!valor) { ev.target.value = t.titulo; return; } }
         if (campo === 'descricao') valor = valor.trim();
         if ((campo === 'prazo' || campo === 'projetoId') && !valor) valor = null;
         if ((t[campo] ?? null) === valor) return;
         const acao = { responsavelId: 'responsavel', projetoId: 'projeto' }[campo] || campo;
         salvar({ [campo]: valor }, { acao, valor: campo === 'descricao' ? null : valor });
-      },
-      submit: (ev) => {
-        ev.preventDefault();
+  }
+
+  function submeter(ev) {
         const t = tarefa();
         if (!t) return;
         if (ev.target.matches('[data-check-novo]')) {
@@ -406,13 +431,5 @@ export function abrirTarefa(id) {
           ta.value = '';
           fonte.comentar(t.id, texto, eu().id).catch(erro);
         }
-      },
-      keydown: (ev) => {
-        // Ctrl+Enter envia o comentário.
-        if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey) && ev.target.closest('[data-comentar]')) {
-          ev.target.closest('form').requestSubmit();
-        }
-      }
-    }
-  });
+  }
 }

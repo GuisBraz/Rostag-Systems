@@ -12,7 +12,7 @@ import { renderProjetos, renderProjeto, formProjeto } from './ui/projetos.js';
 import { renderConfig, montarConfig } from './ui/config.js';
 import { renderLinha, montarLinha } from './ui/linha.js';
 import { vigiarAtualizacoes } from './atualizacao.js';
-import { saudacao, dataHoraCurta, semanaISO } from './dominio/datas.js';
+import { saudacao, dataHoraCurta, semanaISO, completarAno } from './dominio/datas.js';
 
 aplicarTema();
 const app = $('#app');
@@ -258,6 +258,32 @@ document.addEventListener('keydown', (ev) => {
     abrirTarefa(ev.target.dataset.abrirTarefa);
   }
 });
+
+// Datas: ano digitado com 2 dígitos (26) vira 2026 ao sair do campo (clique fora,
+// Tab ou Enter), em qualquer tela. O navegador ainda esperaria mais dígitos no ano.
+function completarAnoDoCampo(el) {
+  if (!(el instanceof HTMLInputElement) || el.type !== 'date' || !el.value) return;
+  const certo = completarAno(el.value);
+  if (certo !== el.value) {
+    el.value = certo;
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+}
+document.addEventListener('focusout', (ev) => completarAnoDoCampo(ev.target), true);
+document.addEventListener('keydown', (ev) => {
+  const el = ev.target;
+  if (!(el instanceof HTMLInputElement) || el.type !== 'date') return;
+  if (ev.key === 'Enter') { completarAnoDoCampo(el); return; }
+  if (ev.key !== 'Tab' || ev.shiftKey || !el.value || completarAno(el.value) === el.value) return;
+  // Ano com 2 dígitos + Tab: completa e já vai para o próximo campo (o navegador ficaria no ano).
+  ev.preventDefault();
+  completarAnoDoCampo(el);
+  const raiz = el.closest('.modal, form') || document;
+  const focaveis = [...raiz.querySelectorAll('input:not([type=hidden]):not([hidden]), select, textarea, button, a[href]')]
+    .filter((x) => !x.disabled && x.offsetParent !== null);
+  const prox = focaveis[focaveis.indexOf(el) + 1];
+  if (prox) prox.focus(); else el.blur();
+}, true);
 
 window.addEventListener('hashchange', () => {
   guardarConviteDaUrl();

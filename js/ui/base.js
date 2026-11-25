@@ -87,6 +87,10 @@ export function atualizarModal() {
 
 export function fecharModal() {
   if (!modalAtual) return;
+  // Tira o foco antes de remover: campos que salvam ao sair (ex.: prazo) ainda salvam.
+  const ativoEl = document.activeElement;
+  if (ativoEl && modalAtual.caixa.contains(ativoEl)) ativoEl.blur();
+  if (!modalAtual) return;
   modalAtual.fundo.remove();
   modalAtual = null;
   document.body.classList.remove('sem-rolagem');

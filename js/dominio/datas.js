@@ -50,3 +50,14 @@ export function limitesSemana(data = new Date()) {
   const dom = new Date(seg); dom.setDate(seg.getDate() + 6);
   return { inicio: hojeISO(seg), fim: hojeISO(dom) };
 }
+
+/** Ano digitado com 2 dígitos vira 20xx: '0026-11-24' -> '2026-11-24'. Outras datas ficam como estão. */
+export function completarAno(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  if (!m) return iso;
+  const ano = Number(m[1]);
+  return ano < 100 ? `${2000 + ano}-${m[2]}-${m[3]}` : iso;
+}
+
+/** A data já tem um ano "de verdade" (4 dígitos, a partir de 1000)? */
+export const anoCompleto = (iso) => /^\d{4}-\d{2}-\d{2}$/.test(iso || '') && Number(iso.slice(0, 4)) >= 1000;

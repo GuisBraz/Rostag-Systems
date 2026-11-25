@@ -155,3 +155,15 @@ test('versão do código bate com version.json (senão o aviso de atualização 
   const publicada = JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).versao;
   assert.equal(publicada, VERSAO);
 });
+
+import { completarAno, anoCompleto } from '../js/dominio/datas.js';
+
+test('ano com 2 dígitos vira 20xx; 4 dígitos fica', () => {
+  assert.equal(completarAno('0026-11-24'), '2026-11-24');
+  assert.equal(completarAno('0005-01-02'), '2005-01-02');
+  assert.equal(completarAno('2026-11-24'), '2026-11-24');
+  assert.equal(completarAno(''), '');
+  assert.ok(anoCompleto('2026-11-24'));
+  assert.ok(!anoCompleto('0026-11-24') && !anoCompleto('0202-11-24'));
+  assert.ok(!anoCompleto('0020-01-01') && !anoCompleto(''));
+});
