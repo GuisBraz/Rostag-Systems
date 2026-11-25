@@ -3,12 +3,14 @@
 import { estado, fonte, nomeDe } from '../estado.js';
 import { MODO_DEMO, VERSAO, LINKS } from '../config.js';
 import {
-  NIVEIS, ehGerente, ehAdm, equipeDe, niveisQuePodeDar, podeEditarPessoa, pessoasVisiveis, conviteValido
+  NIVEIS, ehGerente, ehAdm, equipesDe, lideresDe, destinoSemLider, niveisQuePodeDar, podeEditarPessoa,
+  pessoasVisiveis, conviteValido
 } from '../dominio/regras.js';
 import { fmtDataHora } from '../dominio/datas.js';
 import { t } from '../i18n.js';
 import { pref, definirPref } from '../prefs.js';
-import { esc, avatar, aviso, erro, copiar, confirmar } from './base.js';
+import { esc, avatar, aviso, erro, copiar, confirmar, abrirModal, fecharModal } from './base.js';
+import { alcanceDe, nomeEquipe } from './equipes.js';
 import { reduzirFoto } from './foto.js';
 
 export const ABAS_CONFIG = [
@@ -38,7 +40,6 @@ export function renderConfig(aba) {
 
 function abaConta() {
   const u = estado.usuario;
-  const eq = equipeDe(u);
   const seg = (grupo, valor, rotulo) =>
     `<button type="button" class="seg ${pref(grupo) === valor ? 'ativo seg-andamento' : ''}" data-pref="${grupo}" data-valor="${valor}" aria-pressed="${pref(grupo) === valor}">${rotulo}</button>`;
   return `
@@ -52,7 +53,7 @@ function abaConta() {
         ${u.foto ? `<button type="button" class="botao-link" data-remover-foto>${esc(t('Remover foto'))}</button>` : ''}
         <h2>${esc(u.nome)}</h2>
         <p class="meta">${esc(u.email || '')}</p>
-        <p><span class="selo-texto">${esc(t(NIVEIS[u.nivel]))}</span>${eq ? ` · ${esc(t('Equipe de {nome}', { nome: nomeDe(eq) }))}` : ''}</p>
+        <p><span class="selo-texto">${esc(t(NIVEIS[u.nivel]))}</span>${['lider', 'analista'].includes(u.nivel) ? ` · ${esc(alcanceDe(u))}` : ''}</p>
       </div>
       <form class="form form-nome" data-form-nome>
         <label>${esc(t('Nome'))}<input name="nome" required maxlength="60" value="${esc(u.nome)}"></label>
@@ -77,8 +78,14 @@ function organograma(lideres, analistas) {
       ${lideres.map((l) => `
         <div class="org-equipe">
           <div class="org-lider">${avatar(l)}<strong>${esc(l.nome)}</strong><small>${esc(t('Líder'))}</small></div>
-          <ul>${analistas.filter((a) => a.liderId === l.id).map((a) => `<li>${avatar(a, 'avatar-p')}${esc(a.nome)}</li>`).join('') || `<li class="meta">${esc(t('Sem analistas'))}</li>`}</ul>
-        </div>`).join('') || `<p class="vazio">${esc(t('Defina pelo menos um líder abaixo.'))}</p>`}
+          <ul>${analistas.filter((a) => lideresDe(a).includes(l.id)).map((a) => `<li>${avatar(a, 'avatar-p')}${esc(a.nome)}${lideresDe(a).length > 1 ? ` <small class="meta" title="${esc(lideresDe(a).map(nomeDe).join(', '))}">+${lideresDe(a).length - 1}</small>` : ''}</li>`).join('') || `<li class="meta">${esc(t('Sem analistas'))}</li>`}</ul>
+        </div>`).join('')}
+      ${analistas.some((a) => !lideresDe(a).length) ? `
+        <div class="org-equipe org-sem-lider">
+          <div class="org-lider"><span class="avatar avatar-vazio">?</span><strong>${esc(t('Sem líder'))}</strong><small>${esc(t('Tarefas visíveis para o analista e a gerência'))}</small></div>
+          <ul>${analistas.filter((a) => !lideresDe(a).length).map((a) => `<li>${avatar(a, 'avatar-p')}${esc(a.nome)}</li>`).join('')}</ul>
+        </div>` : ''}
+      ${!lideres.length && !analistas.length ? `<p class="vazio">${esc(t('Defina pelo menos um líder abaixo.'))}</p>` : ''}
     </div>`;
 }
 
@@ -90,10 +97,12 @@ function abaEquipe() {
 
   // Líder e analista: só veem a própria equipe, sem editar.
   if (!ehGerente(eu)) {
-    const eq = equipeDe(eu);
+    const minhas = equipesDe(eu);
+    const meusLideres = lideres.filter((l) => minhas.includes(l.id));
+    const colegas = analistas.filter((a) => lideresDe(a).some((l) => minhas.includes(l)) || a.id === eu.id);
     return `
       <h2 class="subtitulo">${esc(t('Sua equipe'))}</h2>
-      ${organograma(lideres.filter((l) => l.id === eq), analistas.filter((a) => a.liderId === eq))}`;
+      ${organograma(meusLideres, colegas)}`;
   }
 
   const gerentes = visiveis.filter((u) => ['adm', 'gerente'].includes(u.nivel));
@@ -114,10 +123,10 @@ function abaEquipe() {
             ${opcoes.map((id) => `<option value="${id}" ${id === u.nivel ? 'selected' : ''}>${esc(t(NIVEIS[id]))}</option>`).join('')}
           </select>` : `<span class="selo-texto">${esc(t(NIVEIS[u.nivel]))}</span>`}</td>
         <td>${u.nivel === 'analista' ? (editavel ? `
-          <select data-lider="${esc(u.id)}" aria-label="${esc(t('Líder'))}: ${esc(u.nome)}">
-            <option value="">${esc(t('Sem líder'))}</option>
-            ${lideres.map((l) => `<option value="${esc(l.id)}" ${l.id === u.liderId ? 'selected' : ''}>${esc(l.nome)}</option>`).join('')}
-          </select>` : esc(nomeDe(u.liderId))) : '<span class="meta">—</span>'}</td>
+          <div class="lideres-check" role="group" aria-label="${esc(t('Líderes'))}: ${esc(u.nome)}">
+            ${lideres.map((l) => `<label><input type="checkbox" data-lider-de="${esc(u.id)}" value="${esc(l.id)}" ${lideresDe(u).includes(l.id) ? 'checked' : ''}> ${esc(l.nome)}</label>`).join('') || `<span class="meta">${esc(t('Nenhum líder cadastrado'))}</span>`}
+            ${lideresDe(u).length ? '' : `<span class="selo-texto selo-sem-lider">${esc(t('Sem líder'))}</span>`}
+          </div>` : esc(lideresDe(u).map(nomeDe).join(', ') || t('Sem líder'))) : '<span class="meta">—</span>'}</td>
       </tr>`;
   };
 
@@ -131,8 +140,8 @@ function abaEquipe() {
         <select name="nivel" data-convite-nivel aria-label="${esc(t('Nível'))}">
           ${niveisConvite.map((n) => `<option value="${n}" ${n === 'analista' ? 'selected' : ''}>${esc(t(NIVEIS[n]))}</option>`).join('')}
         </select>
-        <select name="liderId" data-convite-lider aria-label="${esc(t('Escolha o líder'))}">
-          <option value="">${esc(t('Escolha o líder'))}</option>
+        <select name="liderId" data-convite-lider aria-label="${esc(t('Líder'))}">
+          <option value="">${esc(t('Sem líder (definir depois)'))}</option>
           ${lideres.map((l) => `<option value="${esc(l.id)}">${esc(l.nome)}</option>`).join('')}
         </select>
         <button class="botao">${esc(t('Gerar link de convite'))}</button>
@@ -153,7 +162,7 @@ function abaEquipe() {
 
     <div class="tabela-caixa">
       <table class="tabela">
-        <thead><tr><th>${esc(t('Pessoa'))}</th><th>${esc(t('Nível'))}</th><th>${esc(t('Líder'))}</th></tr></thead>
+        <thead><tr><th>${esc(t('Pessoa'))}</th><th>${esc(t('Nível'))}</th><th>${esc(t('Líderes'))}</th></tr></thead>
         <tbody>${pessoas.map(linha).join('')}</tbody>
       </table>
     </div>
@@ -216,11 +225,13 @@ export function montarConfig(raiz, redesenharTudo) {
     }
     if (el.dataset.nivel) {
       const patch = { nivel: el.value };
-      if (el.value !== 'analista') patch.liderId = null;
+      if (el.value !== 'analista') { patch.liderId = null; patch.liderIds = []; }
       fonte.atualizarUsuario(el.dataset.nivel, patch).then(() => aviso(t('Nível atualizado'))).catch(erro);
     }
-    if (el.dataset.lider !== undefined) {
-      fonte.atualizarUsuario(el.dataset.lider, { liderId: el.value || null }).then(() => aviso(t('Líder atualizado'))).catch(erro);
+    if (el.dataset.liderDe) {
+      const id = el.dataset.liderDe;
+      const novos = [...raiz.querySelectorAll(`[data-lider-de="${CSS.escape(id)}"]:checked`)].map((x) => x.value);
+      mudarLideres(id, novos);
     }
   });
 
@@ -233,14 +244,62 @@ export function montarConfig(raiz, redesenharTudo) {
     }
     if (form.matches('[data-form-convite]')) {
       const nivel = form.nivel.value;
-      const liderId = nivel === 'analista' ? form.liderId.value : null;
-      if (nivel === 'analista' && !liderId) { form.liderId.focus(); aviso(t('Escolha o líder'), 'erro'); return; }
+      const liderId = nivel === 'analista' ? (form.liderId.value || null) : null;
       if (nivel === 'gerente' && !ehAdm(eu)) return;
       const dados = { nivel, liderId, equipeNome: liderId ? nomeDe(liderId) : null };
       fonte.criarConvite(dados, eu.id)
         .then((codigo) => copiar(linkConvite(codigo)))
         .then((ok) => aviso(t(ok ? 'Convite criado e link copiado' : 'Convite criado')))
         .catch(erro);
+    }
+  });
+}
+
+/* ------------------------------------------- líderes de um analista */
+
+function moverTarefas(lista) {
+  const eu = estado.usuario;
+  return Promise.all(lista.map((m) =>
+    fonte.atualizarTarefa(m.id, { equipeId: m.equipeId }, eu.id, [{ acao: 'equipe', valor: m.equipeId }])));
+}
+
+/** Gerência muda os líderes de um analista. Se ele estava "Sem líder", as tarefas
+    dessa área vão para os líderes novos (pelo projeto; com vários, a gerência escolhe). */
+function mudarLideres(analistaId, novos) {
+  const analista = estado.usuarios.find((u) => u.id === analistaId);
+  if (!analista) return;
+  const estavaSemLider = !lideresDe(analista).length;
+  const { mover, escolher } = estavaSemLider && novos.length
+    ? destinoSemLider(analistaId, novos, estado.tarefas, estado.projetos)
+    : { mover: [], escolher: [] };
+
+  fonte.atualizarUsuario(analistaId, { liderIds: novos, liderId: novos[0] || null })
+    .then(() => moverTarefas(mover))
+    .then(() => {
+      aviso(t(mover.length ? 'Líderes atualizados e {n} tarefa(s) movida(s)' : 'Líderes atualizados', { n: mover.length }));
+      if (escolher.length) perguntarDestino(analista, novos, escolher);
+    })
+    .catch(erro);
+}
+
+function perguntarDestino(analista, lideres, tarefaIds) {
+  abrirModal({
+    render: () => `
+      <div class="form">
+        <header class="modal-topo"><h2>${esc(t('Mover tarefas sem líder'))}</h2></header>
+        <p class="meta-centro">${esc(t('{nome} tinha {n} tarefa(s) sem projeto (ou de projeto de outro líder). Para qual equipe elas vão?', { nome: analista.nome, n: tarefaIds.length }))}</p>
+        <div class="acoes">${lideres.map((l) => `<button type="button" class="botao" data-destino="${esc(l)}">${esc(nomeEquipe(l))}</button>`).join('')}</div>
+      </div>`,
+    eventos: {
+      click: (ev) => {
+        const b = ev.target.closest('[data-destino]');
+        if (!b) return;
+        const destino = b.dataset.destino;
+        fecharModal();
+        moverTarefas(tarefaIds.map((id) => ({ id, equipeId: destino })))
+          .then(() => aviso(t('{n} tarefa(s) movida(s)', { n: tarefaIds.length })))
+          .catch(erro);
+      }
     }
   });
 }

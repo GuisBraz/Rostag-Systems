@@ -196,3 +196,28 @@ test('quem vê cada notificação e não lidas', () => {
     { id: 3, em: 300, por: 'ana', paraId: null, equipeId: null }];
   assert.equal(naoLidas({ ...carla, notifVistasEm: 150 }, lista, 1000), 1); // a 2 é dela mesma, a 1 já foi vista
 });
+
+import { lideresDe, equipesDe, equipesParaCriar, destinoSemLider } from '../js/dominio/regras.js';
+
+test('vários líderes e "sem líder"', () => {
+  const multi = { id: 'm', nivel: 'analista', liderIds: ['ana', 'bruno'] };
+  const sem = { id: 's', nivel: 'analista', liderIds: [] };
+  assert.deepEqual(lideresDe(carla), ['ana']); // campo antigo liderId
+  assert.deepEqual(equipesDe(multi), ['ana', 'bruno', 'm']);
+  assert.deepEqual(equipesDe(sem), ['s']);
+  assert.deepEqual(equipesParaCriar(multi), ['ana', 'bruno']);
+  assert.deepEqual(equipesParaCriar(sem), ['s']);
+  assert.ok(podeVerTarefa(multi, { equipeId: 'bruno' }) && podeVerTarefa(sem, { equipeId: 's' }));
+  assert.ok(!podeVerTarefa(ana, { equipeId: 's' }) && !podeVerTarefa(ana, { equipeId: 'bruno' }));
+  const membrosBruno = membrosDaEquipe('bruno', [ana, bruno, carla, multi, sem]).map((u) => u.id);
+  assert.deepEqual(membrosBruno, ['bruno', 'm']);
+  assert.deepEqual(membrosDaEquipe('s', [ana, sem]).map((u) => u.id), ['s']);
+});
+
+test('tarefas "sem líder" vão para o líder do projeto; sem projeto com vários líderes, a gerência escolhe', () => {
+  const projetos = [{ id: 'pa', liderId: 'ana' }, { id: 'pz', liderId: 'zeca' }];
+  const tarefas = [{ id: 1, equipeId: 's', projetoId: 'pa' }, { id: 2, equipeId: 's', projetoId: null },
+    { id: 3, equipeId: 's', projetoId: 'pz' }, { id: 4, equipeId: 'ana', projetoId: null }];
+  assert.deepEqual(destinoSemLider('s', ['ana', 'bruno'], tarefas, projetos), { mover: [{ id: 1, equipeId: 'ana' }], escolher: [2, 3] });
+  assert.deepEqual(destinoSemLider('s', ['bruno'], tarefas, projetos).mover.map((m) => m.equipeId), ['bruno', 'bruno', 'bruno']);
+});

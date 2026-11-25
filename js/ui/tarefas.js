@@ -2,13 +2,14 @@
 
 import { estado, fonte, nomeDe, projetoDe, pessoaDe } from '../estado.js';
 import {
-  STATUS, PRIORIDADES, nomeStatus, nomePrioridade, atrasada, ehGerente, equipeDe,
+  STATUS, PRIORIDADES, nomeStatus, nomePrioridade, atrasada, ehGerente, equipesDe, equipesParaCriar,
   membrosDaEquipe, podeVerTarefa, nomeProjeto, tarefasAtivas, projetoAberto
 } from '../dominio/regras.js';
 import { fmtData, fmtDataHora, hojeISO, anoCompleto } from '../dominio/datas.js';
 import { t as T } from '../i18n.js';
 import { esc, avatar, abrirModal, fecharModal, aviso, erro, confirmar } from './base.js';
 import { notificarTarefaNova, notificarAtribuida, notificarComentario } from '../notificar.js';
+import { nomeEquipe, alcanceDe, todasAsEquipes } from './equipes.js';
 
 /* ------------------------------------------------------------------ histórico */
 
@@ -24,6 +25,7 @@ export function textoHistorico(h) {
     case 'prazo': return v ? T('mudou o prazo para {v}', { v: fmtData(v) }) : T('removeu o prazo');
     case 'prioridade': return T('mudou a prioridade para {v}', { v: T(nomePrioridade(v)) });
     case 'projeto': return v ? T('moveu para o projeto “{v}”', { v: nomeProjeto(projetoDe(v)) || '—' }) : T('tirou a tarefa do projeto');
+    case 'equipe': return T('moveu para {v}', { v: nomeEquipe(v) });
     case 'check_add': return T('adicionou “{v}” ao checklist', { v });
     case 'check_rem': return T('removeu o item “{v}” do checklist', { v });
     case 'check_on': return T('marcou “{v}”', { v });
@@ -115,13 +117,16 @@ function filtrar(tarefas) {
 
 export function renderQuadro() {
   const eu = estado.usuario;
-  const lideres = estado.usuarios.filter((u) => u.nivel === 'lider');
+  // Equipes que esta pessoa enxerga (gerência: todas; analista com 2 líderes: as duas + "Sem líder").
+  const equipes = ehGerente(eu) ? todasAsEquipes() : equipesDe(eu);
   const pessoas = ehGerente(eu)
     ? estado.usuarios.filter((u) => u.nivel === 'lider' || u.nivel === 'analista')
-    : membrosDaEquipe(equipeDe(eu), estado.usuarios);
+    : [...new Map(equipes.flatMap((e) => membrosDaEquipe(e, estado.usuarios)).map((u) => [u.id, u])).values()];
   const lista = filtrar(tarefasAtivas(estado.tarefas, estado.projetos));
   const opt = (v, txt, sel) => `<option value="${esc(v)}" ${v === sel ? 'selected' : ''}>${esc(txt)}</option>`;
-  const alcance = ehGerente(eu) ? T('Todas as equipes') : T('Equipe de {nome}', { nome: nomeDe(equipeDe(eu)) });
+  const alcance = alcanceDe(eu);
+  // Filtro de equipe só quando há mais de uma com tarefas visíveis.
+  const equipesComTarefa = equipes.filter((e) => ehGerente(eu) || estado.tarefas.some((t) => t.equipeId === e));
 
   return `
     <header class="titulo-pagina">
@@ -133,7 +138,7 @@ export function renderQuadro() {
       <input type="search" placeholder="${esc(T('Buscar tarefa…'))}" value="${esc(filtros.busca)}" data-filtro="busca" aria-label="${esc(T('Buscar'))}">
       <select data-filtro="projeto" aria-label="${esc(T('Projeto'))}">${opt('', T('Todos os projetos'), filtros.projeto)}${estado.projetos.filter(projetoAberto).map((p) => opt(p.id, nomeProjeto(p), filtros.projeto)).join('')}</select>
       <select data-filtro="responsavel" aria-label="${esc(T('Responsável'))}">${opt('', T('Todos os responsáveis'), filtros.responsavel)}${pessoas.map((u) => opt(u.id, u.nome, filtros.responsavel)).join('')}</select>
-      ${ehGerente(eu) ? `<select data-filtro="equipe" aria-label="${esc(T('Equipe'))}">${opt('', T('Todas as equipes'), filtros.equipe)}${lideres.map((l) => opt(l.id, T('Equipe {nome}', { nome: l.nome }), filtros.equipe)).join('')}</select>` : ''}
+      ${equipesComTarefa.length > 1 ? `<select data-filtro="equipe" aria-label="${esc(T('Equipe'))}">${opt('', T('Todas as equipes'), filtros.equipe)}${equipesComTarefa.map((e) => opt(e, nomeEquipe(e), filtros.equipe)).join('')}</select>` : ''}
       ${Object.values(filtros).some(Boolean) ? `<button class="botao-link" data-limpar-filtros>${esc(T('Limpar'))}</button>` : ''}
     </div>
     <div class="kanban">
@@ -185,9 +190,8 @@ export function mudarStatus(t, status) {
 
 function equipesQuePodeUsar() {
   const eu = estado.usuario;
-  if (ehGerente(eu)) return estado.usuarios.filter((u) => u.nivel === 'lider').map((l) => ({ id: l.id, nome: T('Equipe {nome}', { nome: l.nome }) }));
-  const eq = equipeDe(eu);
-  return eq ? [{ id: eq, nome: T('Equipe {nome}', { nome: nomeDe(eq) }) }] : [];
+  const ids = ehGerente(eu) ? todasAsEquipes() : equipesParaCriar(eu);
+  return ids.map((id) => ({ id, nome: nomeEquipe(id) }));
 }
 
 function opcoesResponsavel(equipeId, selecionado) {
@@ -343,7 +347,7 @@ export function abrirTarefa(id) {
               <option value="">${esc(T('Sem projeto'))}</option>
               ${estado.projetos.filter((p) => projetoAberto(p) || p.id === t.projetoId).map((p) => `<option value="${esc(p.id)}" ${p.id === t.projetoId ? 'selected' : ''}>${esc(nomeProjeto(p))}</option>`).join('')}
             </select></label>
-            <p class="meta">${T('Equipe de <strong>{nome}</strong>', { nome: esc(nomeDe(t.equipeId)) })}</p>
+            <p class="meta">${esc(T('Equipe'))}: <strong>${esc(nomeEquipe(t.equipeId))}</strong></p>
             <p class="meta">${T('Criada por <strong>{nome}</strong>', { nome: esc(nomeDe(t.criadoPor)) })}<br>${esc(fmtDataHora(t.criadoEm))}</p>
             ${proj ? `<p class="meta"><a href="#/projetos/${esc(proj.id)}" data-fechar>${esc(T('Ver projeto →'))}</a></p>` : ''}
             <details class="historico">

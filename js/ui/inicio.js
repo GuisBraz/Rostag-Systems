@@ -2,10 +2,11 @@
 
 import { estado, nomeDe, projetoDe } from '../estado.js';
 import { saudacao, dataHoraCurta, semanaISO, fmtData } from '../dominio/datas.js';
-import { indicadores, abertasPor, atrasada, ehGerente, equipeDe, NIVEIS, nomeProjeto, tarefasAtivas, podeCriarProjeto } from '../dominio/regras.js';
+import { indicadores, abertasPor, atrasada, ehGerente, NIVEIS, nomeProjeto, tarefasAtivas, podeCriarProjeto } from '../dominio/regras.js';
 import { t } from '../i18n.js';
 import { pref } from '../prefs.js';
 import { esc } from './base.js';
+import { alcanceDe, todasAsEquipes } from './equipes.js';
 
 // Paletas dos gráficos, validadas (separação para daltonismo e contraste) — uma por tema.
 const PALETA = {
@@ -42,8 +43,9 @@ export function renderInicio() {
   const u = estado.usuario;
   const tarefas = tarefasAtivas(estado.tarefas, estado.projetos);
   const ind = indicadores(tarefas, estado.projetos);
-  const semEquipe = !estado.usuarios.some((x) => x.nivel === 'lider');
-  const alcance = ehGerente(u) ? t('Todas as equipes') : t('Equipe de {nome}', { nome: nomeDe(equipeDe(u)) });
+  // Sem nenhuma equipe ainda (nem líder, nem analista): só a gerência vê o aviso de convidar.
+  const semEquipe = ehGerente(u) && !todasAsEquipes().length;
+  const alcance = alcanceDe(u);
   const atrasadas = tarefas.filter((x) => atrasada(x)).sort((a, b) => a.prazo.localeCompare(b.prazo));
 
   return `

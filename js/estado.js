@@ -4,7 +4,7 @@
 import { MODO_DEMO } from './config.js';
 import { fonteLocal } from './dados/local.js';
 import { fonteFirebase } from './dados/firebase.js';
-import { ehGerente } from './dominio/regras.js';
+import { ehGerente, lideresDe } from './dominio/regras.js';
 
 export const fonte = MODO_DEMO ? fonteLocal : fonteFirebase;
 
@@ -31,7 +31,7 @@ export function iniciarEstado() {
     estado.usuario = usuario;
     estado.carregado = true;
     // Re-assina os dados quando muda a pessoa ou o nível/equipe dela.
-    const chave = usuario ? `${usuario.id}|${usuario.nivel}|${usuario.liderId || ''}` : '';
+    const chave = usuario ? `${usuario.id}|${usuario.nivel}|${lideresDe(usuario).join(',')}` : '';
     if (chave !== usuarioAssinado) {
       usuarioAssinado = chave;
       pararDados.forEach((p) => p());

@@ -4,7 +4,7 @@
 import { hojeISO } from '../dominio/datas.js';
 import { tarefasVisiveis, VALIDADE_CONVITE_MS, DESTINO_ACAO, podeVerNotificacao } from '../dominio/regras.js';
 
-const CHAVE = 'rostag-systems-demo-v3';
+const CHAVE = 'rostag-systems-demo-v4';
 const CHAVE_SESSAO = 'rostag-systems-demo-sessao';
 
 let banco = null;
@@ -24,9 +24,10 @@ function semente() {
     { id: 'u-gui', nome: 'Gui', email: 'gerencia@demo', nivel: 'gerente', liderId: null },
     { id: 'u-ana', nome: 'Ana Souza', email: 'ana@demo', nivel: 'lider', liderId: null },
     { id: 'u-bruno', nome: 'Bruno Lima', email: 'bruno@demo', nivel: 'lider', liderId: null },
-    { id: 'u-carla', nome: 'Carla Dias', email: 'carla@demo', nivel: 'analista', liderId: 'u-ana' },
-    { id: 'u-diego', nome: 'Diego Melo', email: 'diego@demo', nivel: 'analista', liderId: 'u-ana' },
-    { id: 'u-elisa', nome: 'Elisa Rocha', email: 'elisa@demo', nivel: 'analista', liderId: 'u-bruno' }
+    { id: 'u-carla', nome: 'Carla Dias', email: 'carla@demo', nivel: 'analista', liderId: 'u-ana', liderIds: ['u-ana'] },
+    { id: 'u-diego', nome: 'Diego Melo', email: 'diego@demo', nivel: 'analista', liderId: 'u-ana', liderIds: ['u-ana', 'u-bruno'] },
+    { id: 'u-elisa', nome: 'Elisa Rocha', email: 'elisa@demo', nivel: 'analista', liderId: 'u-bruno', liderIds: ['u-bruno'] },
+    { id: 'u-fabio', nome: 'Fábio Neves', email: 'fabio@demo', nivel: 'analista', liderId: null, liderIds: [] }
   ];
   const p = [
     { id: 'p-site', commessa: '2026-014', nome: 'Novo site institucional', cliente: 'Rostag', tipoServico: 'Serviços gerais', descricao: 'Reformular o site da empresa.',

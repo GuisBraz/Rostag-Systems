@@ -156,6 +156,15 @@ const EN = {
   '{quem} passou a tarefa {tarefa} para você': '{quem} assigned the task {tarefa} to you',
   '{quem} comentou em {tarefa}: “{trecho}”': '{quem} commented on {tarefa}: “{trecho}”',
 
+  // Vários líderes / sem líder
+  'Sem líder · {nome}': 'No leader · {nome}', 'Sem líder': 'No leader', 'Equipes de {nomes}': '{nomes}’s teams', 'e': 'and',
+  'Líderes': 'Leaders', 'Nenhum líder cadastrado': 'No leaders yet', 'Sem líder (definir depois)': 'No leader (set later)',
+  'Tarefas visíveis para o analista e a gerência': 'Tasks visible to the analyst and management',
+  'Líderes atualizados': 'Leaders updated', 'Líderes atualizados e {n} tarefa(s) movida(s)': 'Leaders updated and {n} task(s) moved',
+  'Mover tarefas sem líder': 'Move tasks without a leader',
+  '{nome} tinha {n} tarefa(s) sem projeto (ou de projeto de outro líder). Para qual equipe elas vão?': '{nome} had {n} task(s) with no project (or from another leader’s project). Which team should they go to?',
+  '{n} tarefa(s) movida(s)': '{n} task(s) moved', 'moveu para {v}': 'moved to {v}',
+
   // Erros
   'Você não tem permissão para isso.': 'You don’t have permission to do that.', 'Algo deu errado.': 'Something went wrong.',
   'No modo demonstração não há cadastro.': 'There is no sign-up in demo mode.'

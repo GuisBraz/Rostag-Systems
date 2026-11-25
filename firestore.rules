@@ -1,5 +1,7 @@
 rules_version = '2';
 
+// ===== PROJETO FIREBASE: rostag-systems  (NÃO colar no rostag-pcp) =====
+
 // Rostag Systems — quem vê e quem mexe em quê.
 // Níveis: adm (criador, tudo liberado) · gerente (vê tudo) · lider (a própria equipe)
 //         · analista (a equipe do seu líder) · pendente (sem acesso até ser liberado).
@@ -14,10 +16,16 @@ service cloud.firestore {
     function ativo() { return logado() && nivel() in ['adm', 'gerente', 'lider', 'analista']; }
     function adm() { return logado() && nivel() == 'adm'; }
     function gerente() { return logado() && nivel() in ['adm', 'gerente']; }   // gerência ou ADM
-    function minhaEquipe() {
-      return nivel() == 'lider' ? request.auth.uid : (nivel() == 'analista' ? eu().liderId : null);
+    // Líderes do analista (campo novo liderIds; contas antigas só têm liderId).
+    function lideresDoAnalista() {
+      return eu().get('liderIds', eu().get('liderId', null) == null ? [] : [eu().liderId]);
     }
-    function daMinhaEquipe(equipeId) { return ativo() && equipeId != null && equipeId == minhaEquipe(); }
+    // Equipes que vejo: líder → a minha; analista → as dos meus líderes + a minha área "Sem líder" (meu uid).
+    function minhasEquipes() {
+      return nivel() == 'lider' ? [request.auth.uid]
+        : (nivel() == 'analista' ? lideresDoAnalista().concat([request.auth.uid]) : []);
+    }
+    function daMinhaEquipe(equipeId) { return ativo() && equipeId != null && equipeId in minhasEquipes(); }
     function mudou() { return request.resource.data.diff(resource.data).affectedKeys(); }
     function convite(cod) { return get(/databases/$(database)/documents/convites/$(cod)).data; }
 
@@ -29,6 +37,7 @@ service cloud.firestore {
       // convite — e o mesmo lote precisa marcar o convite como usado por esta conta.
       allow create: if logado() && request.auth.uid == uid && (
         (request.resource.data.nivel == 'pendente' && request.resource.data.liderId == null
+          && request.resource.data.get('liderIds', []) == []
           && !('convite' in request.resource.data))
         || (
           request.resource.data.convite is string
@@ -36,6 +45,8 @@ service cloud.firestore {
           && convite(request.resource.data.convite).expiraEm > request.time.toMillis()
           && request.resource.data.nivel == convite(request.resource.data.convite).nivel
           && request.resource.data.liderId == convite(request.resource.data.convite).liderId
+          && (!('liderIds' in request.resource.data)
+              || request.resource.data.liderIds == (convite(request.resource.data.convite).liderId == null ? [] : [convite(request.resource.data.convite).liderId]))
           && getAfter(/databases/$(database)/documents/convites/$(request.resource.data.convite)).data.usadoPor == request.auth.uid
         ));
 
@@ -70,7 +81,7 @@ service cloud.firestore {
         && request.resource.data.usado == false
         && request.resource.data.expiraEm is number
         && (request.resource.data.nivel in ['lider', 'analista'] || (adm() && request.resource.data.nivel == 'gerente'))
-        && (request.resource.data.nivel != 'analista' || request.resource.data.liderId is string);
+        && 'liderId' in request.resource.data;   // analista pode vir sem líder (null)
       // Usar o convite: só uma vez, pela conta que está sendo criada com ele.
       allow update: if logado() && resource.data.usado == false
         && resource.data.expiraEm > request.time.toMillis()
@@ -118,14 +129,14 @@ service cloud.firestore {
       allow read: if gerente()
         || (ativo() && (resource.data.paraId == request.auth.uid
             || (resource.data.paraId == null
-                && (resource.data.equipeId == null || resource.data.equipeId == minhaEquipe()))));
+                && (resource.data.equipeId == null || resource.data.equipeId in minhasEquipes()))));
       allow create: if ativo()
         && request.resource.data.por == request.auth.uid
         && request.resource.data.tipo in ['projeto', 'tarefa_nova', 'tarefa_atribuida', 'comentario']
         && request.resource.data.em is number
         && request.resource.data.expiraEm is number
         && request.resource.data.keys().hasAll(['paraId', 'equipeId'])
-        && (request.resource.data.equipeId == null || gerente() || request.resource.data.equipeId == minhaEquipe())
+        && (request.resource.data.equipeId == null || gerente() || request.resource.data.equipeId in minhasEquipes())
         && request.resource.data.titulo is string && request.resource.data.titulo.size() <= 200
         && (request.resource.data.get('trecho', null) == null || request.resource.data.trecho.size() <= 200);
       // Ninguém edita; a gerência apaga as vencidas (mais de 30 dias).

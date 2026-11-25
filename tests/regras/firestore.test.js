@@ -135,7 +135,7 @@ test('quem cria convite: gerência (líder/analista); gerente só o ADM', async 
   const conv = (nivel, liderId, por) => ({ nivel, liderId, criadoPor: por, criadoEm: 1, expiraEm: Date.now() + DIA, usado: false });
   await assertSucceeds(como(G).doc('convites/c1').set(conv('lider', null, G)));
   await assertSucceeds(como(G).doc('convites/c2').set(conv('analista', L1, G)));
-  await assertFails(como(G).doc('convites/c3').set(conv('analista', null, G)));
+  await assertSucceeds(como(G).doc('convites/c3').set(conv('analista', null, G))); // analista pode vir sem líder
   await assertFails(como(G).doc('convites/c4').set(conv('gerente', null, G)));
   await assertSucceeds(como(A).doc('convites/c5').set(conv('gerente', null, A)));
   await assertFails(como(L1).doc('convites/c6').set(conv('analista', L1, L1)));
@@ -249,4 +249,64 @@ test('notificações: cada um lê só as suas, as gerais e as da equipe', async 
 test('marcar notificações como lidas no próprio perfil', async () => {
   await assertSucceeds(como(N1).doc(`usuarios/${N1}`).update({ notifVistasEm: Date.now() }));
   await assertFails(como(N1).doc(`usuarios/${N2}`).update({ notifVistasEm: Date.now() }));
+});
+
+/* ---------------------------------------------------------------- vários líderes / sem líder */
+
+const S = 'semLider', M = 'multi';
+async function prepararLideres() {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await db.doc(`usuarios/${S}`).set({ ...pessoa('analista'), liderIds: [] });
+    await db.doc(`usuarios/${M}`).set({ ...pessoa('analista', L1), liderIds: [L1, L2] });
+    await db.doc('tarefas/tS').set(tarefa(S, { responsavelId: S, criadoPor: S }));
+  });
+}
+
+test('analista sem líder cria e vê as próprias tarefas; líder não vê; gerência vê', async () => {
+  await prepararLideres();
+  await assertSucceeds(como(S).collection('tarefas').add(tarefa(S, { responsavelId: S, criadoPor: S })));
+  await assertSucceeds(como(S).doc('tarefas/tS').get());
+  await assertSucceeds(como(S).collection('tarefas').where('equipeId', 'in', [S]).get());
+  await assertFails(como(S).collection('tarefas').add(tarefa(L1, { criadoPor: S })));
+  await assertFails(como(L1).doc('tarefas/tS').get());
+  await assertSucceeds(como(G).doc('tarefas/tS').get());
+});
+
+test('gerência move as tarefas "sem líder" para a equipe do líder novo', async () => {
+  await prepararLideres();
+  await assertFails(como(S).doc('tarefas/tS').update({ equipeId: L1 }));
+  await assertSucceeds(como(G).doc(`usuarios/${S}`).update({ liderIds: [L1], liderId: L1 }));
+  await assertSucceeds(como(G).doc('tarefas/tS').update({ equipeId: L1 }));
+  await assertSucceeds(como(L1).doc('tarefas/tS').get());
+  await assertSucceeds(como(S).doc('tarefas/tS').get());
+});
+
+test('analista com dois líderes vê as duas equipes; cada líder só a sua', async () => {
+  await prepararLideres();
+  await assertSucceeds(como(M).doc('tarefas/t1').get());
+  await assertSucceeds(como(M).doc('tarefas/t2').get());
+  await assertSucceeds(como(M).collection('tarefas').where('equipeId', 'in', [L1, L2, M]).get());
+  await assertSucceeds(como(M).collection('tarefas').add(tarefa(L2, { criadoPor: M })));
+  await assertFails(como(L1).doc('tarefas/t2').get());
+  await assertFails(como(L2).doc('tarefas/t1').get());
+  // notificação da equipe do líder 2 chega para o analista dos dois
+  await env.withSecurityRulesDisabled((ctx) => ctx.firestore().doc('notificacoes/n2').set(notif({ equipeId: L2, por: L2 })));
+  await assertSucceeds(como(M).doc('notificacoes/n2').get());
+  await assertFails(como(L1).doc('notificacoes/n2').get());
+});
+
+test('convite sem líder cria analista "sem líder"', async () => {
+  await env.withSecurityRulesDisabled((ctx) => ctx.firestore().doc('convites/semlider').set({
+    nivel: 'analista', liderId: null, criadoPor: G, criadoEm: 1, expiraEm: Date.now() + DIA, usado: false }));
+  const db = como(X);
+  const lote = db.batch();
+  lote.set(db.doc(`usuarios/${X}`), { ...pessoa('analista'), liderIds: [], convite: 'semlider' });
+  lote.update(db.doc('convites/semlider'), { usado: true, usadoPor: X, usadoEm: Date.now() });
+  await assertSucceeds(lote.commit());
+});
+
+test('convite não deixa forjar a lista de líderes', async () => {
+  await assertFails(usarConvite(X, 'bom', { ...pessoa('analista', L1), liderIds: [L1, L2] }));
+  await assertSucceeds(usarConvite(X, 'bom', { ...pessoa('analista', L1), liderIds: [L1] }));
 });

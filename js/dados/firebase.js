@@ -4,7 +4,7 @@
    o que cada nível tem permissão de ler. */
 
 import { FIREBASE_CONFIG } from '../config.js';
-import { equipeDe, ehGerente, ativo, VALIDADE_CONVITE_MS, DESTINO_ACAO } from '../dominio/regras.js';
+import { equipesDe, ehGerente, ativo, VALIDADE_CONVITE_MS, DESTINO_ACAO } from '../dominio/regras.js';
 
 let fb = null;
 const db = () => fb.firestore();
@@ -34,7 +34,7 @@ export const fonteFirebase = {
           const idadeMs = Date.now() - Date.parse(conta.metadata.creationTime || 0);
           if (idadeMs > 60000) {
             ref.set({ nome: conta.displayName || conta.email.split('@')[0], email: conta.email,
-              nivel: 'pendente', liderId: null, criadoEm: Date.now() }).catch(console.error);
+              nivel: 'pendente', liderId: null, liderIds: [], criadoEm: Date.now() }).catch(console.error);
           }
           cb({ id: conta.uid, nome: conta.displayName || conta.email, email: conta.email, nivel: 'pendente', liderId: null });
           return;
@@ -51,7 +51,7 @@ export const fonteFirebase = {
     const uid = cred.user.uid;
     await cred.user.updateProfile({ displayName: nome });
     const perfil = db().collection('usuarios').doc(uid);
-    const pendente = { nome, email, nivel: 'pendente', liderId: null, criadoEm: Date.now() };
+    const pendente = { nome, email, nivel: 'pendente', liderId: null, liderIds: [], criadoEm: Date.now() };
     if (codigoConvite) {
       // Perfil já no nível do convite + convite marcado como usado, na mesma gravação
       // (o firestore.rules confere as duas coisas juntas: o link vale uma vez só).
@@ -59,7 +59,7 @@ export const fonteFirebase = {
         const conv = await db().collection('convites').doc(codigoConvite).get();
         const c = conv.data();
         const lote = db().batch();
-        lote.set(perfil, { ...pendente, nivel: c.nivel, liderId: c.liderId || null, convite: codigoConvite });
+        lote.set(perfil, { ...pendente, nivel: c.nivel, liderId: c.liderId || null, liderIds: c.liderId ? [c.liderId] : [], convite: codigoConvite });
         lote.update(conv.ref, { usado: true, usadoPor: uid, usadoEm: Date.now() });
         await lote.commit();
         return;
@@ -97,9 +97,10 @@ export const fonteFirebase = {
     if (!ativo(usuario)) { cb([]); return () => {}; }
     let q = db().collection('tarefas');
     if (!ehGerente(usuario)) {
-      const eq = equipeDe(usuario);
-      if (!eq) { cb([]); return () => {}; }
-      q = q.where('equipeId', '==', eq);
+      // Líder: a equipe dele. Analista: as dos líderes dele + a área "Sem líder" dele.
+      const eqs = equipesDe(usuario).slice(0, 30);
+      if (!eqs.length) { cb([]); return () => {}; }
+      q = q.where('equipeId', 'in', eqs);
     }
     return q.onSnapshot((s) => cb(lista(s)), console.error);
   },
@@ -147,8 +148,8 @@ export const fonteFirebase = {
     const consultas = ehGerente(usuario)
       ? [col]
       : [col.where('paraId', '==', usuario.id), col.where('paraId', '==', null).where('equipeId', '==', null)];
-    const eq = equipeDe(usuario);
-    if (!ehGerente(usuario) && eq) consultas.push(col.where('paraId', '==', null).where('equipeId', '==', eq));
+    const eqs = equipesDe(usuario).slice(0, 30);
+    if (!ehGerente(usuario) && eqs.length) consultas.push(col.where('paraId', '==', null).where('equipeId', 'in', eqs));
     const partes = consultas.map(() => []);
     const paradas = consultas.map((q, i) => q.onSnapshot((s) => {
       partes[i] = lista(s);

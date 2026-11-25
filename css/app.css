@@ -491,6 +491,15 @@ details.grupo > summary h2::after { content: ' ▾'; color: var(--tinta-3); font
 .notif-texto small { display: block; color: var(--tinta-3); font-size: .76rem; margin-top: 2px; }
 .notif-rodape { padding: 10px 14px; border-top: 1px solid var(--borda); text-align: center; }
 
+/* ---------------------------------------------------------------- vários líderes */
+.lideres-check { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
+.lideres-check label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
+.lideres-check input { accent-color: var(--royal); width: 16px; height: 16px; }
+.selo-sem-lider { background: #FFF2D6; color: #8A5A00; }
+:root[data-theme="dark"] .selo-sem-lider { background: #3A3018; color: #E8C46B; }
+.org-sem-lider { border-style: dashed; }
+.avatar-vazio { background: var(--superficie-2); color: var(--tinta-3); width: 40px; height: 40px; font-size: 1rem; }
+
 /* ---------------------------------------------------------------- configurações */
 .abas-config { display: flex; justify-content: center; gap: 6px; margin: -8px auto 24px; flex-wrap: wrap; }
 .abas-config a { padding: 9px 20px; border-radius: 999px; color: var(--tinta-2); font-weight: 500; border: 1px solid var(--borda); background: var(--superficie); }

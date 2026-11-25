@@ -25,13 +25,40 @@ export const PRIORIDADES = [
 ];
 export const nomePrioridade = (id) => (PRIORIDADES.find((p) => p.id === id) || {}).nome || id;
 
-/** Equipe de um usuário: o líder é a própria equipe; o analista é a equipe do seu líder. */
-export function equipeDe(usuario) {
-  if (!usuario) return null;
-  if (usuario.nivel === 'lider') return usuario.id;
-  if (usuario.nivel === 'analista') return usuario.liderId || null;
-  return null;
+/* Equipes: cada líder é uma equipe (equipeId = id do líder). Um analista pode
+   ter vários líderes (liderIds) ou nenhum; sem líder, as tarefas dele ficam na
+   área "Sem líder", cujo equipeId é o próprio id do analista. */
+
+/** Líderes de um analista (aceita o campo antigo liderId, de antes de existir liderIds). */
+export function lideresDe(u) {
+  if (!u || u.nivel !== 'analista') return [];
+  if (Array.isArray(u.liderIds)) return u.liderIds.filter(Boolean);
+  return u.liderId ? [u.liderId] : [];
 }
+
+/** Equipes cujas tarefas o usuário vê: líder → a dele; analista → as dos líderes + a "Sem líder" dele. */
+export function equipesDe(u) {
+  if (!u) return [];
+  if (u.nivel === 'lider') return [u.id];
+  if (u.nivel === 'analista') return [...lideresDe(u), u.id];
+  return [];
+}
+
+/** Equipes em que o usuário pode criar tarefa: as dos líderes; sem líder, a "Sem líder" dele. */
+export function equipesParaCriar(u) {
+  if (!u) return [];
+  if (u.nivel === 'lider') return [u.id];
+  if (u.nivel === 'analista') { const l = lideresDe(u); return l.length ? l : [u.id]; }
+  return [];
+}
+
+/** Compatibilidade: a primeira equipe (usada onde só cabe uma). */
+export function equipeDe(usuario) {
+  return equipesParaCriar(usuario)[0] || null;
+}
+
+/** O equipeId é a área "Sem líder" de um analista? */
+export const ehSemLider = (equipeId, usuarios) => usuarios.some((u) => u.id === equipeId && u.nivel === 'analista');
 
 /** ADM (só o criador, para testes) fica acima da gerência e tem tudo liberado. */
 export const ehAdm = (u) => !!u && u.nivel === 'adm';
@@ -67,18 +94,35 @@ export function conviteValido(c, agora = Date.now()) {
 export function podeVerTarefa(usuario, tarefa) {
   if (!ativo(usuario) || !tarefa) return false;
   if (ehGerente(usuario)) return true;
-  const eq = equipeDe(usuario);
-  return !!eq && tarefa.equipeId === eq;
+  return equipesDe(usuario).includes(tarefa.equipeId);
 }
 
 export function tarefasVisiveis(usuario, tarefas) {
   return tarefas.filter((t) => podeVerTarefa(usuario, t));
 }
 
-/** Pessoas que podem ser responsáveis numa tarefa da equipe (o líder e seus analistas). */
+/** Pessoas que podem ser responsáveis numa tarefa da equipe (o líder e seus analistas;
+    na área "Sem líder", só o próprio analista). */
 export function membrosDaEquipe(equipeId, usuarios) {
+  if (!equipeId) return [];
   return usuarios.filter((u) =>
-    (u.nivel === 'lider' && u.id === equipeId) || (u.nivel === 'analista' && u.liderId === equipeId));
+    (u.nivel === 'lider' && u.id === equipeId)
+    || (u.nivel === 'analista' && (lideresDe(u).includes(equipeId) || (u.id === equipeId && !lideresDe(u).length))));
+}
+
+/** Para onde vão as tarefas "Sem líder" de um analista que ganhou líderes:
+    tarefa de projeto cujo líder é um dos novos → equipe desse líder; senão, com 1 líder → ele;
+    com vários líderes, fica em `escolher` (a gerência decide). */
+export function destinoSemLider(analistaId, novosLideres, tarefas, projetos) {
+  const mover = [];
+  const escolher = [];
+  tarefas.filter((t) => t.equipeId === analistaId).forEach((t) => {
+    const p = t.projetoId ? projetos.find((x) => x.id === t.projetoId) : null;
+    if (p && novosLideres.includes(p.liderId)) mover.push({ id: t.id, equipeId: p.liderId });
+    else if (novosLideres.length === 1) mover.push({ id: t.id, equipeId: novosLideres[0] });
+    else if (novosLideres.length > 1) escolher.push(t.id);
+  });
+  return { mover, escolher };
 }
 
 /** Pendente = atrasada: prazo vencido e ainda não concluída. */
@@ -163,7 +207,7 @@ export function podeVerNotificacao(u, n) {
   if (!ativo(u) || !n) return false;
   if (n.paraId) return n.paraId === u.id;
   if (!n.equipeId) return true;
-  return ehGerente(u) || equipeDe(u) === n.equipeId;
+  return ehGerente(u) || equipesDe(u).includes(n.equipeId);
 }
 
 /** Notificações para mostrar: visíveis, de outras pessoas, dentro da validade, mais novas primeiro. */

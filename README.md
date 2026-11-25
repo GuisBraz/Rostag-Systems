@@ -15,7 +15,11 @@ Site estático (HTML + JS, sem etapa de build). Os dados ficam no Firebase
 | **Líder** | A própria equipe | Criar projetos; criar, editar, dar baixa, comentar e excluir tarefas da equipe |
 | **Analista** | A equipe do seu líder | Criar, editar, dar baixa, comentar e mexer no checklist das tarefas da equipe |
 
-- Cada analista pertence a um líder; uma equipe **não vê** as tarefas da outra.
+- Cada analista pode ter **um ou mais líderes** (cobertura de falta, mudanças) ou
+  **nenhum**: sem líder, as tarefas dele ficam em “Sem líder” (visíveis para ele e a
+  gerência). Ao ganhar líder, essas tarefas vão para a equipe do líder do projeto
+  (sem projeto e com vários líderes, a gerência escolhe). Um líder **não vê** as
+  tarefas da equipe de outro líder.
 - **Projetos** são visíveis para todos; só gerência e líderes criam.
 - Toda tarefa tem um **responsável** obrigatório.
 - Cada tarefa guarda **checklist**, **comentários** e um **histórico automático**
