@@ -121,6 +121,41 @@ const EN = {
   'Trocar foto': 'Change photo', 'Remover foto': 'Remove photo', 'Foto atualizada': 'Photo updated', 'Foto removida': 'Photo removed',
   'Não foi possível ler essa imagem.': 'Couldn’t read that image.',
 
+  // Situação do projeto / lixeira
+  'Em andamento': 'In progress', 'Pausado': 'Paused', 'Finalizado': 'Completed', 'Cancelado': 'Cancelled', 'Na lixeira': 'In trash',
+  'Pausar': 'Pause', 'Retomar': 'Resume', 'Finalizar': 'Complete', 'Cancelar projeto': 'Cancel project', 'Reabrir': 'Reopen',
+  'Excluir': 'Delete', 'Restaurar': 'Restore', 'Apagar de vez': 'Delete permanently', 'Lixeira': 'Trash',
+  'Tem certeza que deseja pausar o projeto “{p}”?': 'Are you sure you want to pause the project “{p}”?',
+  'Tem certeza que deseja retomar o projeto “{p}”?': 'Are you sure you want to resume the project “{p}”?',
+  'Tem certeza que deseja finalizar o projeto “{p}”? Ele vai para os arquivados e as tarefas saem do Quadro.': 'Are you sure you want to complete the project “{p}”? It will be archived and its tasks will leave the Board.',
+  'Tem certeza que deseja cancelar o projeto “{p}”? Ele vai para os arquivados e as tarefas saem do Quadro.': 'Are you sure you want to cancel the project “{p}”? It will be archived and its tasks will leave the Board.',
+  'Tem certeza que deseja reabrir o projeto “{p}”?': 'Are you sure you want to reopen the project “{p}”?',
+  'Tem certeza que deseja excluir o projeto “{p}”? Ele vai para a Lixeira e some para todos, junto com as tarefas.': 'Are you sure you want to delete the project “{p}”? It goes to the Trash and disappears for everyone, along with its tasks.',
+  'Tem certeza que deseja restaurar o projeto “{p}”?': 'Are you sure you want to restore the project “{p}”?',
+  'Tem certeza? O projeto “{p}” e as {n} tarefa(s) dele serão apagados de vez. Isso não pode ser desfeito.': 'Are you sure? The project “{p}” and its {n} task(s) will be permanently deleted. This cannot be undone.',
+  'Projeto pausado': 'Project paused', 'Projeto retomado': 'Project resumed', 'Projeto finalizado': 'Project completed',
+  'Projeto cancelado': 'Project cancelled', 'Projeto reaberto': 'Project reopened', 'Projeto enviado para a Lixeira': 'Project moved to Trash',
+  'Projeto restaurado': 'Project restored', 'Projeto apagado': 'Project deleted',
+  'criou o projeto': 'created the project', 'editou o projeto': 'edited the project', 'pausou': 'paused', 'retomou': 'resumed',
+  'finalizou': 'completed', 'cancelou': 'cancelled', 'reabriu': 'reopened', 'enviou para a Lixeira': 'moved to Trash', 'restaurou': 'restored',
+  'Projetos excluídos não aparecem para ninguém. A gerência pode restaurar ou apagar de vez.': 'Deleted projects are hidden from everyone. Management can restore or delete them permanently.',
+  'Este projeto está na Lixeira.': 'This project is in the Trash.',
+  'Projeto pausado. As tarefas continuam visíveis, mas o trabalho está parado.': 'Project paused. Tasks are still visible, but work is on hold.',
+
+  // Notificações
+  'Notificações': 'Notifications', 'Marcar todas como lidas': 'Mark all as read', 'Nenhuma notificação por enquanto.': 'No notifications yet.',
+  'Ativar avisos no Windows/celular': 'Turn on desktop/phone alerts', 'Avisos do Windows/celular ativados': 'Desktop/phone alerts on',
+  'Avisos bloqueados nas configurações do navegador.': 'Alerts are blocked in the browser settings.',
+  'agora': 'just now', 'há {n} min': '{n} min ago', 'há {n} h': '{n} h ago', 'ontem': 'yesterday', 'há {n} dias': '{n} days ago',
+  '{quem} criou o projeto {p}': '{quem} created the project {p}', '{quem} editou o projeto {p}': '{quem} edited the project {p}',
+  '{quem} pausou o projeto {p}': '{quem} paused the project {p}', '{quem} retomou o projeto {p}': '{quem} resumed the project {p}',
+  '{quem} finalizou o projeto {p}': '{quem} completed the project {p}', '{quem} cancelou o projeto {p}': '{quem} cancelled the project {p}',
+  '{quem} reabriu o projeto {p}': '{quem} reopened the project {p}', '{quem} excluiu o projeto {p}': '{quem} deleted the project {p}',
+  '{quem} restaurou o projeto {p}': '{quem} restored the project {p}', '{quem} apagou de vez o projeto {p}': '{quem} permanently deleted the project {p}',
+  '{quem} alterou o projeto {p}': '{quem} changed the project {p}', '{quem} criou a tarefa {tarefa}': '{quem} created the task {tarefa}',
+  '{quem} passou a tarefa {tarefa} para você': '{quem} assigned the task {tarefa} to you',
+  '{quem} comentou em {tarefa}: “{trecho}”': '{quem} commented on {tarefa}: “{trecho}”',
+
   // Erros
   'Você não tem permissão para isso.': 'You don’t have permission to do that.', 'Algo deu errado.': 'Something went wrong.',
   'No modo demonstração não há cadastro.': 'There is no sign-up in demo mode.'

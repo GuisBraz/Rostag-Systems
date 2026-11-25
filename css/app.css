@@ -437,6 +437,60 @@ details.grupo > summary h2::after { content: ' ▾'; color: var(--tinta-3); font
 .sit-futuro .li-card { border-left-color: var(--celeste); }
 .sit-futuro .li-ponto { background: var(--superficie); box-shadow: 0 0 0 2px var(--celeste); }
 
+/* ---------------------------------------------------------------- situação do projeto */
+.cp-selos { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; }
+.selo-sit { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .75rem; font-weight: 700; background: var(--royal-claro); color: var(--royal); }
+.selo-sit-pausado { background: #FFF2D6; color: #8A5A00; }
+.selo-sit-concluido { background: var(--ok-claro); color: var(--ok); }
+.selo-sit-cancelado { background: var(--superficie-2); color: var(--tinta-2); text-decoration: line-through; }
+.selo-sit-excluido { background: var(--alerta-claro); color: var(--alerta); }
+:root[data-theme="dark"] .selo-sit-pausado { background: #3A3018; color: #E8C46B; }
+.sit-proj-pausado { border-top-color: #D9A21B; opacity: .85; }
+.sit-proj-cancelado { border-top-color: var(--tinta-3); }
+.sit-proj-excluido { border-top-color: var(--alerta); opacity: .8; }
+.faixa-pausado { margin: 6px 0 0; background: #FFF2D6; color: #8A5A00; border-radius: var(--raio-p); padding: 8px 14px; font-size: .9rem; }
+:root[data-theme="dark"] .faixa-pausado { background: #3A3018; color: #E8C46B; }
+.acoes-situacao { margin-top: 6px; padding-top: 12px; border-top: 1px dashed var(--borda); }
+.botao-perigo-p {
+  display: inline-flex; align-items: center; justify-content: center; border-radius: var(--raio-p); padding: 9px 16px; font-weight: 600; font-size: .92rem;
+  cursor: pointer; background: transparent; border: 1px solid var(--perigo-borda); color: var(--alerta);
+}
+.botao-perigo-p:hover { background: var(--alerta-claro); }
+.lixeira summary h2 { color: var(--alerta); }
+.historico-projeto { max-width: 720px; margin: 26px auto 0; background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); padding: 12px 16px; }
+.linha-pausado .li-card { border-left-color: #D9A21B; opacity: .85; }
+.linha-pausado .li-ponto { background: #D9A21B; box-shadow: 0 0 0 2px #D9A21B; }
+
+/* ---------------------------------------------------------------- notificações */
+.sino-caixa { position: relative; }
+.sino {
+  position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid transparent; background: none; color: var(--tinta-2); cursor: pointer;
+}
+.sino:hover { background: var(--superficie-2); border-color: var(--borda); color: var(--tinta); }
+.sino-num {
+  position: absolute; top: 2px; right: 0; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+  background: var(--alerta); color: #fff; font-size: .68rem; font-weight: 700; display: grid; place-items: center; border: 2px solid var(--superficie);
+}
+.painel-notif {
+  position: absolute; right: 0; top: 48px; width: min(380px, calc(100vw - 24px)); max-height: 70vh; overflow-y: auto; z-index: 60;
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); box-shadow: var(--sombra-alta);
+}
+.painel-notif[hidden] { display: none; }
+.notif-topo { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--borda); position: sticky; top: 0; background: var(--superficie); }
+.notif-lista { list-style: none; margin: 0; padding: 6px; }
+.notif-lista .vazio { padding: 22px 10px; }
+.notif-item {
+  width: 100%; display: flex; gap: 10px; align-items: flex-start; text-align: left; background: none; border: 0;
+  padding: 9px 10px; border-radius: var(--raio-p); cursor: pointer; color: var(--tinta); font-size: .88rem; line-height: 1.4;
+}
+.notif-item:hover { background: var(--superficie-2); }
+.notif-item.nao-lida { background: var(--celeste-claro); }
+.notif-item.nao-lida .notif-texto::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--royal); margin-right: 6px; vertical-align: 1px; }
+.notif-texto { flex: 1; min-width: 0; word-break: break-word; }
+.notif-texto small { display: block; color: var(--tinta-3); font-size: .76rem; margin-top: 2px; }
+.notif-rodape { padding: 10px 14px; border-top: 1px solid var(--borda); text-align: center; }
+
 /* ---------------------------------------------------------------- configurações */
 .abas-config { display: flex; justify-content: center; gap: 6px; margin: -8px auto 24px; flex-wrap: wrap; }
 .abas-config a { padding: 9px 20px; border-radius: 999px; color: var(--tinta-2); font-weight: 500; border: 1px solid var(--borda); background: var(--superficie); }

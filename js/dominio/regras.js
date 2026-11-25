@@ -93,7 +93,7 @@ export function indicadores(tarefas, projetos, agora = new Date()) {
   const porStatus = { afazer: 0, andamento: 0, concluida: 0 };
   tarefas.forEach((t) => { if (porStatus[t.status] !== undefined) porStatus[t.status]++; });
   return {
-    projetosAbertos: projetos.filter((p) => p.status !== 'concluido').length,
+    projetosAbertos: projetos.filter(projetoAberto).length,
     tarefasAbertas: abertas.length,
     pendentes: abertas.filter((t) => atrasada(t, hoje)).length,
     venceSemana: abertas.filter((t) => t.prazo && t.prazo >= hoje && t.prazo <= fim).length,
@@ -126,7 +126,53 @@ export const commessaValida = (c) => /^\d{4}-\d{3}$/.test(String(c || '').trim()
 /** "2025-006 · Motorização" (projetos antigos, sem commessa, ficam só com o nome). */
 export const nomeProjeto = (p) => (!p ? '' : (p.commessa ? `${p.commessa} · ${p.nome}` : p.nome));
 
-export const arquivado = (p) => !!p && p.status === 'concluido';
+/** Situações do projeto. "aberto" = em andamento. */
+export const SITUACOES = {
+  aberto: 'Em andamento',
+  pausado: 'Pausado',
+  concluido: 'Finalizado',
+  cancelado: 'Cancelado',
+  excluido: 'Na lixeira'
+};
+/** Em andamento ou pausado: aparece nas listas, na linha do tempo e no Quadro. */
+export const projetoAberto = (p) => !!p && (!p.status || p.status === 'aberto' || p.status === 'pausado');
+/** Finalizado ou cancelado: vai para "Ver arquivados". */
+export const arquivado = (p) => !!p && (p.status === 'concluido' || p.status === 'cancelado');
+/** Excluído: na Lixeira (só a gerência/ADM vê, restaura ou apaga de vez). */
+export const naLixeira = (p) => !!p && p.status === 'excluido';
+
+/** Ações de situação possíveis a partir da situação atual (o que vira botão). */
+export function acoesDeSituacao(p, usuario) {
+  if (naLixeira(p)) return ehGerente(usuario) ? ['restaurar', 'apagar'] : [];
+  if (arquivado(p)) return ['reabrir', 'excluir'];
+  if (p.status === 'pausado') return ['retomar', 'finalizar', 'cancelar', 'excluir'];
+  return ['pausar', 'finalizar', 'cancelar', 'excluir'];
+}
+/** Situação para a qual cada ação leva. */
+export const DESTINO_ACAO = {
+  pausar: 'pausado', retomar: 'aberto', finalizar: 'concluido', cancelar: 'cancelado',
+  reabrir: 'aberto', excluir: 'excluido', restaurar: 'aberto'
+};
+
+/* ------------------------------------------------------------------ notificações */
+
+export const VALIDADE_NOTIFICACAO_MS = 30 * 86400000;
+
+/** O usuário recebe esta notificação? Pessoal (paraId), geral (sem equipe) ou da equipe dele. */
+export function podeVerNotificacao(u, n) {
+  if (!ativo(u) || !n) return false;
+  if (n.paraId) return n.paraId === u.id;
+  if (!n.equipeId) return true;
+  return ehGerente(u) || equipeDe(u) === n.equipeId;
+}
+
+/** Notificações para mostrar: visíveis, de outras pessoas, dentro da validade, mais novas primeiro. */
+export function notificacoesDe(u, lista, agora = Date.now()) {
+  return lista.filter((n) => podeVerNotificacao(u, n) && n.por !== u.id && (!n.expiraEm || n.expiraEm > agora))
+    .sort((a, b) => b.em - a.em);
+}
+export const naoLidas = (u, lista, agora = Date.now()) =>
+  notificacoesDe(u, lista, agora).filter((n) => n.em > (u.notifVistasEm || 0)).length;
 
 /** O projeto é "meu"? Sou o líder responsável, um dos analistas responsáveis ou quem criou. */
 export function projetoEhMeu(usuario, p) {
@@ -134,10 +180,10 @@ export function projetoEhMeu(usuario, p) {
   return p.liderId === usuario.id || (p.analistaIds || []).includes(usuario.id) || p.criadoPor === usuario.id;
 }
 
-/** Tarefas que não pertencem a projeto arquivado (as arquivadas somem do Quadro e do painel). */
+/** Tarefas de projetos abertos (as de projeto arquivado ou na lixeira somem do Quadro e do painel). */
 export function tarefasAtivas(tarefas, projetos) {
-  const arquivados = new Set(projetos.filter(arquivado).map((p) => p.id));
-  return tarefas.filter((t) => !t.projetoId || !arquivados.has(t.projetoId));
+  const fora = new Set(projetos.filter((p) => !projetoAberto(p)).map((p) => p.id));
+  return tarefas.filter((t) => !t.projetoId || !fora.has(t.projetoId));
 }
 
 const diasEntre = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86400000);

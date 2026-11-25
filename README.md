@@ -32,7 +32,13 @@ alguém mexa no navegador, o banco recusa o que o nível da pessoa não permite.
 - **Quadro** — Kanban (A fazer · Em andamento · Concluída) com filtros; arraste para mudar o status.
 - **Projetos** — cada projeto é um **escopo de uma commessa** (`2025-006 · Motorização`),
   com cliente, tipo de serviço, início, entrega, 1 líder e analistas responsáveis.
-  Projeto concluído é **arquivado** (sai das listas e do Quadro; fica em “Ver arquivados”).
+  Situação pelos botões da página do projeto (com “Tem certeza?”): **Pausar/Retomar**,
+  **Finalizar**, **Cancelar**, **Reabrir** e **Excluir**. Finalizado/cancelado vai para
+  “Ver arquivados”; excluído vai para a **Lixeira** (some para todos), onde a gerência/ADM
+  restaura ou **apaga de vez** (junto com as tarefas).
+- **Notificações** (sino no topo) — projeto criado/editado/pausado/finalizado/cancelado/
+  excluído…, tarefa nova e comentário (para a equipe), tarefa atribuída (para o
+  responsável). Avisos do Windows/celular opcionais. Guardadas por 30 dias.
 - **Linha do tempo** — projetos em aberto na vertical, pela data de entrega, com
   marcador de hoje e filtro **Todos / Só os meus**.
 - **Configurações** (clique no seu nome, no canto superior direito):

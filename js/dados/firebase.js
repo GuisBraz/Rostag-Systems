@@ -4,7 +4,7 @@
    o que cada nível tem permissão de ler. */
 
 import { FIREBASE_CONFIG } from '../config.js';
-import { equipeDe, ehGerente, ativo, VALIDADE_CONVITE_MS } from '../dominio/regras.js';
+import { equipeDe, ehGerente, ativo, VALIDADE_CONVITE_MS, DESTINO_ACAO } from '../dominio/regras.js';
 
 let fb = null;
 const db = () => fb.firestore();
@@ -104,10 +104,68 @@ export const fonteFirebase = {
     return q.onSnapshot((s) => cb(lista(s)), console.error);
   },
 
-  async salvarProjeto(dados, id) {
+  async salvarProjeto(dados, id, autorId) {
     const col = db().collection('projetos');
-    if (id) await col.doc(id).update(dados);
-    else await col.add({ status: 'aberto', criadoEm: Date.now(), ...dados });
+    const agora = Date.now();
+    if (id) {
+      await col.doc(id).update({ ...dados, atualizadoEm: agora, historico: uniao({ em: agora, por: autorId, acao: 'editou' }) });
+      return id;
+    }
+    const ref = await col.add({ status: 'aberto', criadoEm: agora, ...dados, historico: [{ em: agora, por: autorId, acao: 'criou' }] });
+    return ref.id;
+  },
+
+  /** Pausar, retomar, finalizar, cancelar, reabrir, excluir (lixeira) ou restaurar. */
+  async mudarSituacaoProjeto(id, acao, autorId) {
+    const agora = Date.now();
+    const dados = { status: DESTINO_ACAO[acao], atualizadoEm: agora, historico: uniao({ em: agora, por: autorId, acao }) };
+    if (acao === 'excluir') { dados.excluidoEm = agora; dados.excluidoPor = autorId; }
+    await db().collection('projetos').doc(id).update(dados);
+  },
+
+  /** Apaga de vez (só da lixeira, pela gerência/ADM): o projeto e as tarefas dele. */
+  async apagarProjeto(id, tarefaIds) {
+    const ids = [...tarefaIds];
+    while (ids.length > 400) {
+      const lote = db().batch();
+      ids.splice(0, 400).forEach((t) => lote.delete(db().collection('tarefas').doc(t)));
+      await lote.commit();
+    }
+    const lote = db().batch();
+    ids.forEach((t) => lote.delete(db().collection('tarefas').doc(t)));
+    lote.delete(db().collection('projetos').doc(id));
+    await lote.commit();
+  },
+
+  /* ---------------------------------------------------------- notificações */
+  async criarNotificacao(n) { await db().collection('notificacoes').add(n); },
+
+  /** Junta as consultas que cada nível pode fazer (pessoais, gerais e da equipe). */
+  observarNotificacoes(usuario, cb) {
+    if (!ativo(usuario)) { cb([]); return () => {}; }
+    const col = db().collection('notificacoes');
+    const consultas = ehGerente(usuario)
+      ? [col]
+      : [col.where('paraId', '==', usuario.id), col.where('paraId', '==', null).where('equipeId', '==', null)];
+    const eq = equipeDe(usuario);
+    if (!ehGerente(usuario) && eq) consultas.push(col.where('paraId', '==', null).where('equipeId', '==', eq));
+    const partes = consultas.map(() => []);
+    const paradas = consultas.map((q, i) => q.onSnapshot((s) => {
+      partes[i] = lista(s);
+      const porId = new Map();
+      partes.flat().forEach((n) => porId.set(n.id, n));
+      cb([...porId.values()]);
+    }, (e) => console.error(e)));
+    return () => paradas.forEach((p) => p());
+  },
+
+  /** Gerência/ADM apaga as notificações vencidas (mais de 30 dias). */
+  async limparNotificacoes() {
+    const s = await db().collection('notificacoes').where('expiraEm', '<', Date.now()).limit(200).get();
+    if (s.empty) return;
+    const lote = db().batch();
+    s.docs.forEach((d) => lote.delete(d.ref));
+    await lote.commit();
   },
 
   async criarTarefa(dados, autorId) {

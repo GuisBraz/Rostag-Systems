@@ -8,10 +8,11 @@ import { aplicarTema } from './prefs.js';
 import { esc, $, avatar, atualizarModal, modalAberto, fecharModal, erro, aviso } from './ui/base.js';
 import { renderInicio, montarInicio, desmontarInicio, primeiroNome } from './ui/inicio.js';
 import { renderMinhas, renderQuadro, montarQuadro, novaTarefa, abrirTarefa } from './ui/tarefas.js';
-import { renderProjetos, renderProjeto, formProjeto } from './ui/projetos.js';
+import { renderProjetos, renderProjeto, formProjeto, aplicarSituacao } from './ui/projetos.js';
 import { renderConfig, montarConfig } from './ui/config.js';
 import { renderLinha, montarLinha } from './ui/linha.js';
 import { vigiarAtualizacoes } from './atualizacao.js';
+import { montarSino, atualizarSino, reiniciarSino } from './ui/sino.js';
 import { saudacao, dataHoraCurta, semanaISO, completarAno } from './dominio/datas.js';
 
 aplicarTema();
@@ -158,11 +159,16 @@ function montarCasca() {
     <header class="topo">
       <a class="marca" href="#/inicio"><img class="marca-icone" src="img/icone-64.png" alt="" width="30" height="30">Rostag <span>Systems</span></a>
       <nav class="menu" id="menu" aria-label="Principal"></nav>
+      <div class="sino-caixa">
+        <button type="button" class="sino" id="sino"></button>
+        <div class="painel-notif" id="painel-notif" hidden></div>
+      </div>
       <a class="usuario" id="usuario" href="#/config/conta"></a>
     </header>
     ${MODO_DEMO ? '<div class="faixa-demo" id="faixa-demo"></div>' : ''}
     <main id="conteudo"></main>`;
   cascaMontada = true;
+  montarSino();
 }
 
 function desenharCasca() {
@@ -225,6 +231,7 @@ function redesenharTudo() {
   if (cascaMontada) { desenharCasca(); desenharPagina(false); } else desenhar();
 }
 
+let donoDoSino = '';
 function desenhar() {
   desenharRodape();
   if (!estado.carregado) { telaCarregando(); cascaMontada = false; return; }
@@ -232,8 +239,10 @@ function desenhar() {
   if (!cadastrando && codigoConvite() && ativo(estado.usuario)) { esquecerConvite(); aviso(t('Você já tem conta. Saia primeiro para usar um convite.'), 'erro'); }
   if (!ativo(estado.usuario)) { cascaMontada = false; desmontarInicio(); telaPendente(); return; }
   estadoLogin = { modo: 'entrar', msg: '', convite: undefined, codigo: null };
+  if (estado.usuario.id !== donoDoSino) { reiniciarSino(); donoDoSino = estado.usuario.id; }
   if (!cascaMontada) montarCasca();
   desenharCasca();
+  atualizarSino();
   desenharPagina();
   if (modalAberto()) atualizarModal();
 }
@@ -248,7 +257,9 @@ document.addEventListener('click', (ev) => {
   if (nova) { novaTarefa({ projetoId: nova.dataset.projeto || '' }); return; }
   if (ev.target.closest('[data-novo-projeto]')) { formProjeto(); return; }
   const editar = ev.target.closest('[data-editar-projeto]');
-  if (editar) formProjeto(editar.dataset.editarProjeto);
+  if (editar) { formProjeto(editar.dataset.editarProjeto); return; }
+  const sit = ev.target.closest('[data-situacao]');
+  if (sit) aplicarSituacao(sit.dataset.projetoId, sit.dataset.situacao);
 });
 
 document.addEventListener('keydown', (ev) => {

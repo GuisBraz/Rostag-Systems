@@ -55,7 +55,7 @@ service cloud.firestore {
             && !mudou().hasAny(['foto'])
             && resource.data.nivel in ['lider', 'analista', 'pendente']
             && request.resource.data.nivel in ['lider', 'analista', 'pendente'])
-        || (logado() && request.auth.uid == uid && mudou().hasOnly(['nome', 'foto'])));
+        || (logado() && request.auth.uid == uid && mudou().hasOnly(['nome', 'foto', 'notifVistasEm'])));
       allow delete: if adm() && request.auth.uid != uid;
     }
 
@@ -91,13 +91,45 @@ service cloud.firestore {
           && request.resource.data.liderId is string
           && request.resource.data.analistaIds is list;
       }
+      function situacaoValida() {
+        return request.resource.data.status in ['aberto', 'pausado', 'concluido', 'cancelado', 'excluido'];
+      }
+      // Só a situação (pausar, retomar, finalizar, cancelar, reabrir, mandar para a Lixeira).
+      function soSituacao() {
+        return mudou().hasOnly(['status', 'historico', 'atualizadoEm', 'excluidoEm', 'excluidoPor']);
+      }
       allow create: if ativo() && nivel() in ['adm', 'gerente', 'lider']
         && request.resource.data.criadoPor == request.auth.uid
-        && projetoValido();
-      allow update: if ativo() && nivel() in ['adm', 'gerente', 'lider']
+        && projetoValido() && situacaoValida();
+      // Líder/gerência/ADM editam tudo; analista muda só a situação.
+      // Projeto na Lixeira: só a gerência/ADM mexe (restaurar).
+      allow update: if ativo()
         && !mudou().hasAny(['criadoPor', 'criadoEm'])
-        && projetoValido();
-      allow delete: if gerente();
+        && projetoValido() && situacaoValida()
+        && (resource.data.get('status', 'aberto') != 'excluido' || gerente())
+        && (nivel() in ['adm', 'gerente', 'lider'] || soSituacao());
+      // Apagar de vez: só a gerência/ADM, e só o que já está na Lixeira.
+      allow delete: if gerente() && resource.data.get('status', 'aberto') == 'excluido';
+    }
+
+    // ----------------------------------------------------------- notificações
+    // Geral (paraId e equipeId nulos), da equipe (equipeId) ou pessoal (paraId).
+    match /notificacoes/{id} {
+      allow read: if gerente()
+        || (ativo() && (resource.data.paraId == request.auth.uid
+            || (resource.data.paraId == null
+                && (resource.data.equipeId == null || resource.data.equipeId == minhaEquipe()))));
+      allow create: if ativo()
+        && request.resource.data.por == request.auth.uid
+        && request.resource.data.tipo in ['projeto', 'tarefa_nova', 'tarefa_atribuida', 'comentario']
+        && request.resource.data.em is number
+        && request.resource.data.expiraEm is number
+        && request.resource.data.keys().hasAll(['paraId', 'equipeId'])
+        && (request.resource.data.equipeId == null || gerente() || request.resource.data.equipeId == minhaEquipe())
+        && request.resource.data.titulo is string && request.resource.data.titulo.size() <= 200
+        && (request.resource.data.get('trecho', null) == null || request.resource.data.trecho.size() <= 200);
+      // Ninguém edita; a gerência apaga as vencidas (mais de 30 dias).
+      allow delete: if gerente() && resource.data.expiraEm < request.time.toMillis();
     }
 
     // ---------------------------------------------------------------- tarefas

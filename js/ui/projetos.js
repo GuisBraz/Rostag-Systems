@@ -4,11 +4,13 @@
 
 import { estado, fonte, nomeDe, pessoaDe } from '../estado.js';
 import {
-  podeCriarProjeto, ehGerente, atrasada, STATUS, nomeProjeto, commessaValida, arquivado, membrosDaEquipe
+  podeCriarProjeto, ehGerente, atrasada, STATUS, nomeProjeto, commessaValida, arquivado, membrosDaEquipe,
+  projetoAberto, naLixeira, SITUACOES, acoesDeSituacao
 } from '../dominio/regras.js';
-import { fmtData } from '../dominio/datas.js';
+import { fmtData, fmtDataHora } from '../dominio/datas.js';
 import { t as T } from '../i18n.js';
-import { esc, avatar, abrirModal, fecharModal, aviso, erro } from './base.js';
+import { esc, avatar, abrirModal, fecharModal, aviso, erro, confirmar } from './base.js';
+import { notificarProjeto } from '../notificar.js';
 import { cartaoTarefa } from './tarefas.js';
 
 export function progresso(tarefas) {
@@ -34,16 +36,17 @@ const porEntrega = (a, b) => (a.prazo || '9999').localeCompare(b.prazo || '9999'
 
 export function renderProjetos() {
   const eu = estado.usuario;
-  const abertos = estado.projetos.filter((p) => !arquivado(p)).sort(porEntrega);
+  const abertos = estado.projetos.filter(projetoAberto).sort(porEntrega);
   const arquivados = estado.projetos.filter(arquivado).sort((a, b) => (b.prazo || '').localeCompare(a.prazo || ''));
+  const lixeira = ehGerente(eu) ? estado.projetos.filter(naLixeira).sort((a, b) => (b.excluidoEm || 0) - (a.excluidoEm || 0)) : [];
 
   const card = (p) => {
     const tarefas = estado.tarefas.filter((t) => t.projetoId === p.id);
     const pr = progresso(tarefas);
     const atras = tarefas.filter((t) => atrasada(t)).length;
     return `
-      <a class="card-projeto ${arquivado(p) ? 'concluido' : ''}" href="#/projetos/${esc(p.id)}">
-        ${p.commessa ? `<span class="cp-commessa">${esc(p.commessa)}</span>` : ''}
+      <a class="card-projeto sit-proj-${esc(p.status || 'aberto')} ${arquivado(p) ? 'concluido' : ''}" href="#/projetos/${esc(p.id)}">
+        <div class="cp-selos">${p.commessa ? `<span class="cp-commessa">${esc(p.commessa)}</span>` : ''}${seloSituacao(p, true)}</div>
         <h3>${esc(p.nome)}</h3>
         ${p.cliente || p.tipoServico ? `<p>${esc([p.cliente, p.tipoServico].filter(Boolean).join(' · '))}</p>` : ''}
         ${periodoTexto(p) ? `<p class="cp-periodo">${esc(periodoTexto(p))}</p>` : ''}
@@ -64,13 +67,68 @@ export function renderProjetos() {
     </header>
     ${abertos.length ? `<div class="grade-projetos">${abertos.map(card).join('')}</div>` : `<p class="vazio">${esc(T('Nenhum projeto em aberto.'))}</p>`}
     ${arquivados.length ? `<details class="grupo arquivados"><summary><h2>${esc(T('Ver arquivados'))} <span class="contador">${arquivados.length}</span></h2></summary>
-      <div class="grade-projetos">${arquivados.map(card).join('')}</div></details>` : ''}`;
+      <div class="grade-projetos">${arquivados.map(card).join('')}</div></details>` : ''}
+    ${lixeira.length ? `<details class="grupo arquivados lixeira"><summary><h2>🗑 ${esc(T('Lixeira'))} <span class="contador">${lixeira.length}</span></h2></summary>
+      <p class="meta-centro">${esc(T('Projetos excluídos não aparecem para ninguém. A gerência pode restaurar ou apagar de vez.'))}</p>
+      <div class="grade-projetos">${lixeira.map(card).join('')}</div></details>` : ''}`;
 }
+
+/** Selo da situação (Pausado, Finalizado, Cancelado, Na lixeira). Com soDiferente, "Em andamento" não aparece. */
+export function seloSituacao(p, soDiferente = false) {
+  const st = p.status || 'aberto';
+  if (soDiferente && st === 'aberto') return '';
+  return `<span class="selo-sit selo-sit-${esc(st)}">${esc(T(SITUACOES[st] || st))}</span>`;
+}
+
+const ROTULO_ACAO = {
+  pausar: 'Pausar', retomar: 'Retomar', finalizar: 'Finalizar', cancelar: 'Cancelar projeto', reabrir: 'Reabrir',
+  excluir: 'Excluir', restaurar: 'Restaurar', apagar: 'Apagar de vez'
+};
+const PERGUNTA_ACAO = {
+  pausar: 'Tem certeza que deseja pausar o projeto “{p}”?',
+  retomar: 'Tem certeza que deseja retomar o projeto “{p}”?',
+  finalizar: 'Tem certeza que deseja finalizar o projeto “{p}”? Ele vai para os arquivados e as tarefas saem do Quadro.',
+  cancelar: 'Tem certeza que deseja cancelar o projeto “{p}”? Ele vai para os arquivados e as tarefas saem do Quadro.',
+  reabrir: 'Tem certeza que deseja reabrir o projeto “{p}”?',
+  excluir: 'Tem certeza que deseja excluir o projeto “{p}”? Ele vai para a Lixeira e some para todos, junto com as tarefas.',
+  restaurar: 'Tem certeza que deseja restaurar o projeto “{p}”?',
+  apagar: 'Tem certeza? O projeto “{p}” e as {n} tarefa(s) dele serão apagados de vez. Isso não pode ser desfeito.'
+};
+const AVISO_ACAO = {
+  pausar: 'Projeto pausado', retomar: 'Projeto retomado', finalizar: 'Projeto finalizado', cancelar: 'Projeto cancelado',
+  reabrir: 'Projeto reaberto', excluir: 'Projeto enviado para a Lixeira', restaurar: 'Projeto restaurado', apagar: 'Projeto apagado'
+};
+
+function botoesSituacao(p) {
+  const acoes = acoesDeSituacao(p, estado.usuario);
+  if (!acoes.length) return '';
+  const classe = (a) => (['excluir', 'apagar', 'cancelar'].includes(a) ? 'botao-perigo-p' : 'botao-sec');
+  return `<div class="acoes acoes-situacao">${acoes.map((a) =>
+    `<button type="button" class="${classe(a)}" data-situacao="${a}" data-projeto-id="${esc(p.id)}">${esc(T(ROTULO_ACAO[a]))}</button>`).join('')}</div>`;
+}
+
+/** Clique num botão de situação: pergunta "Tem certeza?" e aplica. */
+export function aplicarSituacao(id, acao) {
+  const p = estado.projetos.find((x) => x.id === id);
+  if (!p) return;
+  const eu = estado.usuario;
+  const tarefas = estado.tarefas.filter((t) => t.projetoId === id);
+  if (!confirmar(T(PERGUNTA_ACAO[acao], { p: nomeProjeto(p), n: tarefas.length }))) return;
+  const feito = acao === 'apagar'
+    ? fonte.apagarProjeto(id, tarefas.map((t) => t.id)).then(() => { location.hash = '#/projetos'; })
+    : fonte.mudarSituacaoProjeto(id, acao, eu.id).then(() => { if (acao === 'excluir' && !ehGerente(eu)) location.hash = '#/projetos'; });
+  feito.then(() => { notificarProjeto(acao, p); aviso(T(AVISO_ACAO[acao])); }).catch(erro);
+}
+
+const TEXTO_ACAO_PROJETO = {
+  criou: 'criou o projeto', editou: 'editou o projeto', pausar: 'pausou', retomar: 'retomou', finalizar: 'finalizou',
+  cancelar: 'cancelou', reabrir: 'reabriu', excluir: 'enviou para a Lixeira', restaurar: 'restaurou'
+};
 
 export function renderProjeto(id) {
   const p = estado.projetos.find((x) => x.id === id);
-  if (!p) return `<p class="vazio">${esc(T('Projeto não encontrado.'))} <a href="#/projetos">${esc(T('Voltar'))}</a></p>`;
   const eu = estado.usuario;
+  if (!p || (naLixeira(p) && !ehGerente(eu))) return `<p class="vazio">${esc(T(p ? 'Este projeto está na Lixeira.' : 'Projeto não encontrado.'))} <a href="#/projetos">${esc(T('Voltar'))}</a></p>`;
   const tarefas = estado.tarefas.filter((t) => t.projetoId === id);
   const pr = progresso(tarefas);
   const ficha = [
@@ -88,16 +146,17 @@ export function renderProjeto(id) {
       <h1>${esc(p.nome)}</h1>
       ${p.descricao ? `<p>${esc(p.descricao)}</p>` : ''}
       <p class="meta-centro">
-        ${arquivado(p) ? `<span class="selo-texto ok">${esc(T('Arquivado'))}</span>` : `<span class="selo-texto">${esc(T('Em aberto'))}</span>`}
-        · ${esc(T('Criado por {nome}', { nome: nomeDe(p.criadoPor) }))}
+        ${seloSituacao(p)} · ${esc(T('Criado por {nome}', { nome: nomeDe(p.criadoPor) }))}
       </p>
+      ${p.status === 'pausado' ? `<p class="faixa-pausado">⏸ ${esc(T('Projeto pausado. As tarefas continuam visíveis, mas o trabalho está parado.'))}</p>` : ''}
       ${ficha.length ? `<dl class="ficha">${ficha.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
       <div class="barra barra-larga" aria-label="${esc(T('{p}% concluído', { p: pr.pct }))}"><span style="width:${pr.pct}%"></span></div>
       <p class="meta-centro">${esc(T('{p}% · {f} de {t} tarefas concluídas', { p: pr.pct, f: pr.feitas, t: pr.total }))}${ehGerente(eu) ? '' : esc(T(' (da sua equipe)'))}</p>
       <div class="acoes">
-        ${!arquivado(p) ? `<button class="botao" data-nova-tarefa data-projeto="${esc(p.id)}">${esc(T('+ Nova tarefa'))}</button>` : ''}
-        ${podeCriarProjeto(eu) ? `<button class="botao-sec" data-editar-projeto="${esc(p.id)}">${esc(T('Editar projeto'))}</button>` : ''}
+        ${projetoAberto(p) ? `<button class="botao" data-nova-tarefa data-projeto="${esc(p.id)}">${esc(T('+ Nova tarefa'))}</button>` : ''}
+        ${podeCriarProjeto(eu) && !naLixeira(p) ? `<button class="botao-sec" data-editar-projeto="${esc(p.id)}">${esc(T('Editar projeto'))}</button>` : ''}
       </div>
+      ${botoesSituacao(p)}
     </header>
     <div class="grupos">
       ${STATUS.map((s) => {
@@ -105,7 +164,12 @@ export function renderProjeto(id) {
         return itens.length ? `<section class="grupo"><h2>${esc(T(s.nome))} <span class="contador">${itens.length}</span></h2>
           <div class="grade-cards">${itens.map((t) => cartaoTarefa(t)).join('')}</div></section>` : '';
       }).join('') || `<p class="vazio">${esc(T('Nenhuma tarefa visível neste projeto.'))}</p>`}
-    </div>`;
+    </div>
+    ${(p.historico || []).length ? `<details class="historico historico-projeto">
+      <summary>${esc(T('Histórico ({n})', { n: p.historico.length }))}</summary>
+      <ol>${p.historico.slice().sort((a, b) => b.em - a.em).map((h) => `
+        <li><time>${esc(fmtDataHora(h.em))}</time> <strong>${esc(nomeDe(h.por))}</strong> ${esc(T(TEXTO_ACAO_PROJETO[h.acao] || h.acao))}</li>`).join('')}</ol>
+    </details>` : ''}`;
 }
 
 /* ------------------------------------------------------------ formulário */
@@ -149,10 +213,6 @@ export function formProjeto(id = null) {
         <div class="form-linha">
           <label>${esc(T('Data de início'))}<input type="date" name="inicio" required value="${v('inicio')}" data-guardar="inicio" data-rascunho></label>
           <label>${esc(T('Data de entrega'))}<input type="date" name="prazo" required value="${v('prazo')}" data-guardar="prazo" data-rascunho></label>
-          ${p ? `<label>${esc(T('Situação'))}<select name="status" data-guardar="status" data-rascunho>
-            <option value="aberto" ${!arquivado(p) ? 'selected' : ''}>${esc(T('Em aberto'))}</option>
-            <option value="concluido" ${arquivado(p) ? 'selected' : ''}>${esc(T('Concluído (arquivar)'))}</option>
-          </select></label>` : ''}
         </div>
         <label>${esc(T('Líder responsável'))}<select name="liderId" required data-lider-projeto>
           <option value="">${esc(T('Escolha o líder'))}</option>
@@ -192,10 +252,12 @@ export function formProjeto(id = null) {
             : dados.inicio > dados.prazo ? T('A data de entrega não pode ser antes do início.') : '';
         const caixaErro = f.querySelector('[data-erro-form]');
         if (msg) { caixaErro.textContent = msg; caixaErro.hidden = false; return; }
-        if (p) dados.status = d.status;
-        else dados.criadoPor = eu.id;
-        fonte.salvarProjeto(dados, p ? p.id : null)
-          .then(() => { fecharModal(); aviso(T(p ? 'Projeto salvo' : 'Projeto criado')); }).catch(erro);
+        if (!p) dados.criadoPor = eu.id;
+        fonte.salvarProjeto(dados, p ? p.id : null, eu.id)
+          .then((id) => {
+            notificarProjeto(p ? 'editou' : 'criou', { id, ...(p || {}), ...dados });
+            fecharModal(); aviso(T(p ? 'Projeto salvo' : 'Projeto criado'));
+          }).catch(erro);
       }
     }
   });

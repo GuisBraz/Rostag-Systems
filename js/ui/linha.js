@@ -2,11 +2,11 @@
    Cada escopo é um item; um marcador mostra onde está "hoje". */
 
 import { estado } from '../estado.js';
-import { arquivado, projetoEhMeu, situacaoPeriodo, atrasada } from '../dominio/regras.js';
+import { projetoAberto, projetoEhMeu, situacaoPeriodo, atrasada } from '../dominio/regras.js';
 import { fmtData, hojeISO } from '../dominio/datas.js';
 import { t as T, idioma } from '../i18n.js';
 import { esc } from './base.js';
-import { progresso, responsaveisHtml } from './projetos.js';
+import { progresso, responsaveisHtml, seloSituacao } from './projetos.js';
 
 let filtro = 'todos'; // 'todos' | 'meus'
 
@@ -30,13 +30,13 @@ function item(p) {
   const pr = progresso(tarefas);
   const atras = tarefas.filter((t) => atrasada(t)).length;
   return `
-    <li class="linha-item sit-${s.tipo}">
+    <li class="linha-item sit-${s.tipo} ${p.status === 'pausado' ? 'linha-pausado' : ''}">
       <div class="li-data"><strong>${esc(fmtData(p.prazo))}</strong><small>${esc(T('entrega'))}</small></div>
       <span class="li-ponto" aria-hidden="true"></span>
       <a class="li-card" href="#/projetos/${esc(p.id)}">
         <div class="li-topo">
           ${p.commessa ? `<span class="cp-commessa">${esc(p.commessa)}</span>` : ''}
-          <span class="li-sit">${esc(textoSituacao(s))}</span>
+          <span class="li-sit">${p.status === 'pausado' ? seloSituacao(p) : esc(textoSituacao(s))}</span>
         </div>
         <h3>${esc(p.nome)}</h3>
         ${p.cliente || p.tipoServico ? `<p class="li-cliente">${esc([p.cliente, p.tipoServico].filter(Boolean).join(' · '))}</p>` : ''}
@@ -56,7 +56,7 @@ function item(p) {
 
 export function renderLinha() {
   const eu = estado.usuario;
-  const abertos = estado.projetos.filter((p) => !arquivado(p));
+  const abertos = estado.projetos.filter(projetoAberto);
   const lista = abertos
     .filter((p) => filtro === 'todos' || projetoEhMeu(eu, p))
     .sort((a, b) => (a.prazo || '9999').localeCompare(b.prazo || '9999'));

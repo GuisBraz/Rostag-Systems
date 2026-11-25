@@ -14,7 +14,8 @@ export const estado = {
   usuarios: [],
   projetos: [],
   tarefas: [],
-  convites: []
+  convites: [],
+  notificacoes: []
 };
 
 const ouvintes = new Set();
@@ -35,14 +36,18 @@ export function iniciarEstado() {
       usuarioAssinado = chave;
       pararDados.forEach((p) => p());
       pararDados = [];
-      estado.usuarios = []; estado.projetos = []; estado.tarefas = []; estado.convites = [];
+      estado.usuarios = []; estado.projetos = []; estado.tarefas = []; estado.convites = []; estado.notificacoes = [];
       if (usuario && usuario.nivel !== 'pendente') {
         pararDados = [
           fonte.observarUsuarios((l) => { estado.usuarios = l; avisar(); }),
           fonte.observarProjetos((l) => { estado.projetos = l; avisar(); }),
           fonte.observarTarefas(usuario, (l) => { estado.tarefas = l; avisar(); })
         ];
-        if (ehGerente(usuario)) pararDados.push(fonte.observarConvites((l) => { estado.convites = l; avisar(); }));
+        pararDados.push(fonte.observarNotificacoes(usuario, (l) => { estado.notificacoes = l; avisar(); }));
+        if (ehGerente(usuario)) {
+          pararDados.push(fonte.observarConvites((l) => { estado.convites = l; avisar(); }));
+          fonte.limparNotificacoes().catch(() => { /* limpeza é opcional */ });
+        }
       }
     }
     avisar();

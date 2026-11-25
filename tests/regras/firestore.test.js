@@ -180,3 +180,73 @@ test('foto: só JPEG embutido e pequeno', async () => {
   await assertFails(como(N1).doc(`usuarios/${N1}`).update({ foto: 'data:image/svg+xml;base64,PHN2Zz4=' }));
   await assertFails(como(N1).doc(`usuarios/${N1}`).update({ foto: 'data:image/jpeg;base64,' + 'A'.repeat(40000) }));
 });
+
+/* ---------------------------------------------------------------- situação do projeto */
+
+test('situação: analista pausa e manda para a lixeira, mas não edita dados', async () => {
+  await env.withSecurityRulesDisabled((ctx) => ctx.firestore().doc('projetos/p2').set(projeto()));
+  await assertSucceeds(como(N2).doc('projetos/p2').update({ status: 'pausado', atualizadoEm: 2 }));
+  await assertFails(como(N2).doc('projetos/p2').update({ nome: 'Outro' }));
+  await assertFails(como(N2).doc('projetos/p2').update({ status: 'inventado' }));
+  await assertSucceeds(como(N2).doc('projetos/p2').update({ status: 'excluido', excluidoEm: 3, excluidoPor: N2 }));
+  // Na lixeira: só a gerência restaura
+  await assertFails(como(N2).doc('projetos/p2').update({ status: 'aberto' }));
+  await assertFails(como(L1).doc('projetos/p2').update({ status: 'aberto' }));
+  await assertSucceeds(como(G).doc('projetos/p2').update({ status: 'aberto' }));
+});
+
+test('apagar de vez: só gerência/ADM e só da lixeira', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc('projetos/vivo').set(projeto());
+    await ctx.firestore().doc('projetos/lixo').set(projeto({ status: 'excluido' }));
+  });
+  await assertFails(como(G).doc('projetos/vivo').delete());
+  await assertFails(como(L1).doc('projetos/lixo').delete());
+  await assertSucceeds(como(G).doc('projetos/lixo').delete());
+});
+
+/* ---------------------------------------------------------------- notificações */
+
+const notif = (extra = {}) => ({ tipo: 'projeto', acao: 'criou', em: Date.now(), expiraEm: Date.now() + DIA, por: N1,
+  paraId: null, equipeId: null, projetoId: 'p1', tarefaId: null, titulo: 'X', trecho: null, ...extra });
+
+test('notificações: quem cria e para quem', async () => {
+  await assertSucceeds(como(N1).collection('notificacoes').add(notif()));
+  await assertSucceeds(como(N1).collection('notificacoes').add(notif({ tipo: 'tarefa_nova', equipeId: L1 })));
+  await assertFails(como(N1).collection('notificacoes').add(notif({ tipo: 'tarefa_nova', equipeId: L2 })));
+  await assertFails(como(N1).collection('notificacoes').add(notif({ por: N2 })));
+  await assertFails(como(N1).collection('notificacoes').add(notif({ tipo: 'qualquer' })));
+  await assertFails(como(P).collection('notificacoes').add(notif({ por: P })));
+});
+
+test('notificações: cada um lê só as suas, as gerais e as da equipe', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await db.doc('notificacoes/geral').set(notif());
+    await db.doc('notificacoes/eq1').set(notif({ equipeId: L1 }));
+    await db.doc('notificacoes/eq2').set(notif({ equipeId: L2 }));
+    await db.doc('notificacoes/pN1').set(notif({ paraId: N1 }));
+    await db.doc('notificacoes/pN2').set(notif({ paraId: N2 }));
+    await db.doc('notificacoes/velha').set(notif({ expiraEm: Date.now() - DIA }));
+  });
+  const n1 = como(N1);
+  await assertSucceeds(n1.doc('notificacoes/geral').get());
+  await assertSucceeds(n1.doc('notificacoes/eq1').get());
+  await assertSucceeds(n1.doc('notificacoes/pN1').get());
+  await assertFails(n1.doc('notificacoes/eq2').get());
+  await assertFails(n1.doc('notificacoes/pN2').get());
+  await assertSucceeds(n1.collection('notificacoes').where('paraId', '==', N1).get());
+  await assertSucceeds(n1.collection('notificacoes').where('paraId', '==', null).where('equipeId', '==', null).get());
+  await assertSucceeds(n1.collection('notificacoes').where('paraId', '==', null).where('equipeId', '==', L1).get());
+  await assertFails(n1.collection('notificacoes').get());
+  await assertSucceeds(como(G).collection('notificacoes').get());
+  // limpeza: só vencidas, só gerência
+  await assertFails(como(G).doc('notificacoes/geral').delete());
+  await assertFails(n1.doc('notificacoes/velha').delete());
+  await assertSucceeds(como(G).doc('notificacoes/velha').delete());
+});
+
+test('marcar notificações como lidas no próprio perfil', async () => {
+  await assertSucceeds(como(N1).doc(`usuarios/${N1}`).update({ notifVistasEm: Date.now() }));
+  await assertFails(como(N1).doc(`usuarios/${N2}`).update({ notifVistasEm: Date.now() }));
+});

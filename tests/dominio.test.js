@@ -167,3 +167,32 @@ test('ano com 2 dígitos vira 20xx; 4 dígitos fica', () => {
   assert.ok(!anoCompleto('0026-11-24') && !anoCompleto('0202-11-24'));
   assert.ok(!anoCompleto('0020-01-01') && !anoCompleto(''));
 });
+
+import { projetoAberto, naLixeira, acoesDeSituacao, podeVerNotificacao, naoLidas } from '../js/dominio/regras.js';
+
+test('situações do projeto e ações possíveis', () => {
+  assert.ok(projetoAberto({ status: 'aberto' }) && projetoAberto({ status: 'pausado' }) && projetoAberto({}));
+  assert.ok(!projetoAberto({ status: 'concluido' }) && !projetoAberto({ status: 'cancelado' }) && !projetoAberto({ status: 'excluido' }));
+  assert.ok(naLixeira({ status: 'excluido' }));
+  assert.deepEqual(acoesDeSituacao({ status: 'aberto' }, carla), ['pausar', 'finalizar', 'cancelar', 'excluir']);
+  assert.deepEqual(acoesDeSituacao({ status: 'cancelado' }, carla), ['reabrir', 'excluir']);
+  assert.deepEqual(acoesDeSituacao({ status: 'excluido' }, carla), []);
+  assert.deepEqual(acoesDeSituacao({ status: 'excluido' }, ger), ['restaurar', 'apagar']);
+});
+
+test('tarefas de projeto pausado continuam; de cancelado/lixeira somem', () => {
+  const projetos = [{ id: 'a', status: 'pausado' }, { id: 'b', status: 'cancelado' }, { id: 'c', status: 'excluido' }];
+  const tarefas = [{ id: 1, projetoId: 'a' }, { id: 2, projetoId: 'b' }, { id: 3, projetoId: 'c' }];
+  assert.deepEqual(tarefasAtivas(tarefas, projetos).map((t) => t.id), [1]);
+});
+
+test('quem vê cada notificação e não lidas', () => {
+  const geral = { paraId: null, equipeId: null };
+  assert.ok(podeVerNotificacao(carla, geral) && podeVerNotificacao(bruno, geral));
+  assert.ok(podeVerNotificacao(carla, { paraId: null, equipeId: 'ana' }) && !podeVerNotificacao(bruno, { paraId: null, equipeId: 'ana' }));
+  assert.ok(podeVerNotificacao(ger, { paraId: null, equipeId: 'ana' }));
+  assert.ok(podeVerNotificacao(carla, { paraId: 'carla' }) && !podeVerNotificacao(ana, { paraId: 'carla' }));
+  const lista = [{ id: 1, em: 100, por: 'ana', paraId: null, equipeId: null }, { id: 2, em: 200, por: 'carla', paraId: null, equipeId: null },
+    { id: 3, em: 300, por: 'ana', paraId: null, equipeId: null }];
+  assert.equal(naoLidas({ ...carla, notifVistasEm: 150 }, lista, 1000), 1); // a 2 é dela mesma, a 1 já foi vista
+});

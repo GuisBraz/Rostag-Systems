@@ -3,11 +3,12 @@
 import { estado, fonte, nomeDe, projetoDe, pessoaDe } from '../estado.js';
 import {
   STATUS, PRIORIDADES, nomeStatus, nomePrioridade, atrasada, ehGerente, equipeDe,
-  membrosDaEquipe, podeVerTarefa, nomeProjeto, tarefasAtivas, arquivado
+  membrosDaEquipe, podeVerTarefa, nomeProjeto, tarefasAtivas, projetoAberto
 } from '../dominio/regras.js';
 import { fmtData, fmtDataHora, hojeISO, anoCompleto } from '../dominio/datas.js';
 import { t as T } from '../i18n.js';
 import { esc, avatar, abrirModal, fecharModal, aviso, erro, confirmar } from './base.js';
+import { notificarTarefaNova, notificarAtribuida, notificarComentario } from '../notificar.js';
 
 /* ------------------------------------------------------------------ histórico */
 
@@ -130,7 +131,7 @@ export function renderQuadro() {
     </header>
     <div class="filtros" role="search">
       <input type="search" placeholder="${esc(T('Buscar tarefa…'))}" value="${esc(filtros.busca)}" data-filtro="busca" aria-label="${esc(T('Buscar'))}">
-      <select data-filtro="projeto" aria-label="${esc(T('Projeto'))}">${opt('', T('Todos os projetos'), filtros.projeto)}${estado.projetos.filter((p) => !arquivado(p)).map((p) => opt(p.id, nomeProjeto(p), filtros.projeto)).join('')}</select>
+      <select data-filtro="projeto" aria-label="${esc(T('Projeto'))}">${opt('', T('Todos os projetos'), filtros.projeto)}${estado.projetos.filter(projetoAberto).map((p) => opt(p.id, nomeProjeto(p), filtros.projeto)).join('')}</select>
       <select data-filtro="responsavel" aria-label="${esc(T('Responsável'))}">${opt('', T('Todos os responsáveis'), filtros.responsavel)}${pessoas.map((u) => opt(u.id, u.nome, filtros.responsavel)).join('')}</select>
       ${ehGerente(eu) ? `<select data-filtro="equipe" aria-label="${esc(T('Equipe'))}">${opt('', T('Todas as equipes'), filtros.equipe)}${lideres.map((l) => opt(l.id, T('Equipe {nome}', { nome: l.nome }), filtros.equipe)).join('')}</select>` : ''}
       ${Object.values(filtros).some(Boolean) ? `<button class="botao-link" data-limpar-filtros>${esc(T('Limpar'))}</button>` : ''}
@@ -198,7 +199,7 @@ export function novaTarefa({ projetoId = '' } = {}) {
   const equipes = equipesQuePodeUsar();
   if (!equipes.length) { aviso(T('Ainda não há equipes. Cadastre um líder em Equipe.'), 'erro'); return; }
   const eu = estado.usuario;
-  const projAbertos = estado.projetos.filter((p) => p.status !== 'concluido');
+  const projAbertos = estado.projetos.filter(projetoAberto);
   const equipeDoProjeto = (pid) => {
     const p = projAbertos.find((x) => x.id === pid);
     return p && equipes.some((e) => e.id === p.liderId) ? p.liderId : null;
@@ -258,7 +259,10 @@ export function novaTarefa({ projetoId = '' } = {}) {
           descricao: d.descricao.trim(), status: 'afazer'
         };
         if (!dados.titulo || !dados.responsavelId) return;
-        fonte.criarTarefa(dados, eu.id).then(() => { fecharModal(); aviso(T('Tarefa criada')); }).catch(erro);
+        fonte.criarTarefa(dados, eu.id).then((id) => {
+          notificarTarefaNova({ id, ...dados });
+          fecharModal(); aviso(T('Tarefa criada'));
+        }).catch(erro);
       }
     }
   });
@@ -337,7 +341,7 @@ export function abrirTarefa(id) {
             </select></label>
             <label>${esc(T('Projeto'))}<select data-campo="projetoId">
               <option value="">${esc(T('Sem projeto'))}</option>
-              ${estado.projetos.filter((p) => p.status !== 'concluido' || p.id === t.projetoId).map((p) => `<option value="${esc(p.id)}" ${p.id === t.projetoId ? 'selected' : ''}>${esc(nomeProjeto(p))}</option>`).join('')}
+              ${estado.projetos.filter((p) => projetoAberto(p) || p.id === t.projetoId).map((p) => `<option value="${esc(p.id)}" ${p.id === t.projetoId ? 'selected' : ''}>${esc(nomeProjeto(p))}</option>`).join('')}
             </select></label>
             <p class="meta">${T('Equipe de <strong>{nome}</strong>', { nome: esc(nomeDe(t.equipeId)) })}</p>
             <p class="meta">${T('Criada por <strong>{nome}</strong>', { nome: esc(nomeDe(t.criadoPor)) })}<br>${esc(fmtDataHora(t.criadoEm))}</p>
@@ -412,6 +416,7 @@ export function abrirTarefa(id) {
         if ((t[campo] ?? null) === valor) return;
         const acao = { responsavelId: 'responsavel', projetoId: 'projeto' }[campo] || campo;
         salvar({ [campo]: valor }, { acao, valor: campo === 'descricao' ? null : valor });
+        if (campo === 'responsavelId') notificarAtribuida({ ...t, responsavelId: valor });
   }
 
   function submeter(ev) {
@@ -429,7 +434,7 @@ export function abrirTarefa(id) {
           const texto = ta.value.trim();
           if (!texto) return;
           ta.value = '';
-          fonte.comentar(t.id, texto, eu().id).catch(erro);
+          fonte.comentar(t.id, texto, eu().id).then(() => notificarComentario(t, texto)).catch(erro);
         }
   }
 }

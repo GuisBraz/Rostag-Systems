@@ -2,13 +2,13 @@
    Mesma interface da fonte Firebase (firebase.js). */
 
 import { hojeISO } from '../dominio/datas.js';
-import { tarefasVisiveis, VALIDADE_CONVITE_MS } from '../dominio/regras.js';
+import { tarefasVisiveis, VALIDADE_CONVITE_MS, DESTINO_ACAO, podeVerNotificacao } from '../dominio/regras.js';
 
-const CHAVE = 'rostag-systems-demo-v2';
+const CHAVE = 'rostag-systems-demo-v3';
 const CHAVE_SESSAO = 'rostag-systems-demo-sessao';
 
 let banco = null;
-const ouvintes = { sessao: new Set(), usuarios: new Set(), projetos: new Set(), tarefas: new Set(), convites: new Set() };
+const ouvintes = { sessao: new Set(), usuarios: new Set(), projetos: new Set(), tarefas: new Set(), convites: new Set(), notificacoes: new Set() };
 
 const id = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 const copia = (x) => JSON.parse(JSON.stringify(x));
@@ -72,6 +72,7 @@ function carregar() {
   try { banco = bruto ? JSON.parse(bruto) : null; } catch { banco = null; }
   if (!banco || !Array.isArray(banco.tarefas)) { banco = semente(); salvar(); }
   if (!Array.isArray(banco.convites)) banco.convites = [];
+  if (!Array.isArray(banco.notificacoes)) banco.notificacoes = [];
 }
 function salvar() { gravar(CHAVE, JSON.stringify(banco)); }
 
@@ -87,6 +88,7 @@ function emitir() {
   ouvintes.projetos.forEach((cb) => cb(copia(banco.projetos)));
   ouvintes.tarefas.forEach((cb) => cb(copia(tarefasVisiveis(eu, banco.tarefas))));
   ouvintes.convites.forEach((cb) => cb(copia(banco.convites.filter((c) => !c.usado))));
+  ouvintes.notificacoes.forEach((cb) => cb(copia(banco.notificacoes.filter((n) => podeVerNotificacao(eu, n)))));
 }
 
 function assinar(tipo, cb, valor) {
@@ -113,10 +115,42 @@ export const fonteLocal = {
   observarProjetos(cb) { return assinar('projetos', cb, () => banco.projetos); },
   observarTarefas(_usuario, cb) { return assinar('tarefas', cb, () => tarefasVisiveis(usuarioAtual(), banco.tarefas)); },
 
-  async salvarProjeto(dados, idP) {
-    if (idP) Object.assign(banco.projetos.find((p) => p.id === idP), dados);
-    else banco.projetos.push({ id: id(), status: 'aberto', criadoEm: Date.now(), ...dados });
+  async salvarProjeto(dados, idP, autorId) {
+    const agora = Date.now();
+    if (idP) {
+      const p = banco.projetos.find((x) => x.id === idP);
+      Object.assign(p, dados, { atualizadoEm: agora });
+      (p.historico = p.historico || []).push({ em: agora, por: autorId, acao: 'editou' });
+    } else {
+      idP = id();
+      banco.projetos.push({ id: idP, status: 'aberto', criadoEm: agora, ...dados, historico: [{ em: agora, por: autorId, acao: 'criou' }] });
+    }
     salvar(); emitir();
+    return idP;
+  },
+  async mudarSituacaoProjeto(idP, acao, autorId) {
+    const p = banco.projetos.find((x) => x.id === idP);
+    const agora = Date.now();
+    p.status = DESTINO_ACAO[acao];
+    p.atualizadoEm = agora;
+    if (acao === 'excluir') { p.excluidoEm = agora; p.excluidoPor = autorId; }
+    (p.historico = p.historico || []).push({ em: agora, por: autorId, acao });
+    salvar(); emitir();
+  },
+  async apagarProjeto(idP, tarefaIds) {
+    const ids = new Set(tarefaIds);
+    banco.tarefas = banco.tarefas.filter((t) => !ids.has(t.id));
+    banco.projetos = banco.projetos.filter((p) => p.id !== idP);
+    salvar(); emitir();
+  },
+  async criarNotificacao(n) { banco.notificacoes.push({ id: id(), ...n }); salvar(); emitir(); },
+  observarNotificacoes(_u, cb) {
+    return assinar('notificacoes', cb, () => banco.notificacoes.filter((n) => podeVerNotificacao(usuarioAtual(), n)));
+  },
+  async limparNotificacoes() {
+    const agora = Date.now();
+    banco.notificacoes = banco.notificacoes.filter((n) => !n.expiraEm || n.expiraEm > agora);
+    salvar();
   },
   async criarTarefa(dados, autorId) {
     const agora = Date.now();
