@@ -147,3 +147,11 @@ test('situação do período do projeto', () => {
   assert.equal(situacaoPeriodo({ inicio: '2026-11-01', prazo: '2026-11-20' }, '2026-11-24').dias, 4);
   assert.equal(situacaoPeriodo({ inicio: '2026-12-01', prazo: '2026-12-20' }, '2026-11-24').tipo, 'futuro');
 });
+
+import fs from 'node:fs';
+import { VERSAO } from '../js/config.js';
+
+test('versão do código bate com version.json (senão o aviso de atualização dispara sempre)', () => {
+  const publicada = JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).versao;
+  assert.equal(publicada, VERSAO);
+});

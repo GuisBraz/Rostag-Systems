@@ -11,6 +11,7 @@ import { renderMinhas, renderQuadro, montarQuadro, novaTarefa, abrirTarefa } fro
 import { renderProjetos, renderProjeto, formProjeto } from './ui/projetos.js';
 import { renderConfig, montarConfig } from './ui/config.js';
 import { renderLinha, montarLinha } from './ui/linha.js';
+import { vigiarAtualizacoes } from './atualizacao.js';
 import { saudacao, dataHoraCurta, semanaISO } from './dominio/datas.js';
 
 aplicarTema();
@@ -58,7 +59,7 @@ function desenharRodape() {
 const linhaRelogio = (agora) => `${t(saudacao(agora))} · ${dataHoraCurta(agora)} · ${t('Semana {n}', { n: semanaISO(agora) })}`;
 
 function telaCarregando() {
-  app.innerHTML = `<div class="centro-tela"><div class="marca marca-grande">Rostag <span>Systems</span></div><p class="meta">${esc(t('Carregando…'))}</p></div>`;
+  app.innerHTML = `<div class="centro-tela"><div class="marca marca-grande"><img class="marca-icone" src="img/icone-192.png" alt="" width="64" height="64">Rostag <span>Systems</span></div><p class="meta">${esc(t('Carregando…'))}</p></div>`;
 }
 
 let estadoLogin = { modo: 'entrar', msg: '', convite: undefined, codigo: null };
@@ -87,7 +88,7 @@ function telaLogin() {
 
   app.innerHTML = `
     <div class="centro-tela">
-      <div class="marca marca-grande">Rostag <span>Systems</span></div>
+      <div class="marca marca-grande"><img class="marca-icone" src="img/icone-192.png" alt="" width="64" height="64">Rostag <span>Systems</span></div>
       <p class="meta" id="relogio-login">${esc(linhaRelogio(new Date()))}</p>
       ${faixa}
       <form class="cartao form form-login" id="form-login">
@@ -138,7 +139,7 @@ setInterval(() => {
 function telaPendente() {
   app.innerHTML = `
     <div class="centro-tela">
-      <div class="marca marca-grande">Rostag <span>Systems</span></div>
+      <div class="marca marca-grande"><img class="marca-icone" src="img/icone-192.png" alt="" width="64" height="64">Rostag <span>Systems</span></div>
       <h1>${esc(t('Olá {nome}', { nome: primeiroNome(estado.usuario.nome) }))}</h1>
       <p>${t('Sua conta foi criada e está <strong>aguardando liberação da gerência</strong>.')}</p>
       <p class="meta">${esc(t('Assim que seu nível for definido, esta tela atualiza sozinha.'))}</p>
@@ -155,7 +156,7 @@ let rotaMontada = '';
 function montarCasca() {
   app.innerHTML = `
     <header class="topo">
-      <a class="marca" href="#/inicio">Rostag <span>Systems</span></a>
+      <a class="marca" href="#/inicio"><img class="marca-icone" src="img/icone-64.png" alt="" width="30" height="30">Rostag <span>Systems</span></a>
       <nav class="menu" id="menu" aria-label="Principal"></nav>
       <a class="usuario" id="usuario" href="#/config/conta"></a>
     </header>
@@ -264,6 +265,7 @@ window.addEventListener('hashchange', () => {
 });
 
 guardarConviteDaUrl();
+vigiarAtualizacoes();
 aoMudar(desenhar);
 try { iniciarEstado(); } catch (e) { erro(e); app.innerHTML = `<div class="centro-tela"><p class="texto-alerta">${esc(e.message)}</p></div>`; }
 desenhar();

@@ -109,6 +109,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .marca { font-weight: 700; letter-spacing: -.01em; color: var(--royal); font-size: 1.1rem; white-space: nowrap; }
 .marca span { color: var(--celeste); font-weight: 600; }
 .marca:hover { text-decoration: none; }
+.marca { display: inline-flex; align-items: center; gap: 8px; }
+.marca-icone { width: 30px; height: 30px; border-radius: 8px; flex: none; }
+.marca-grande { flex-direction: column; gap: 10px; }
+.marca-grande .marca-icone { width: 72px; height: 72px; border-radius: 18px; box-shadow: var(--sombra); }
 .marca-grande { font-size: 2rem; }
 
 .topo {
@@ -459,6 +463,17 @@ body { padding-bottom: 44px; }
 }
 .rodape-autor a { color: var(--tinta); font-weight: 600; }
 .centro-tela { min-height: calc(100vh - 44px); }
+
+/* ---------------------------------------------------------------- nova versão */
+.aviso-versao {
+  position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 90;
+  display: flex; align-items: center; gap: 12px; max-width: calc(100% - 24px);
+  background: var(--superficie); color: var(--tinta); border: 1px solid var(--celeste);
+  border-radius: 999px; box-shadow: var(--sombra-alta); padding: 6px 8px 6px 18px; font-size: .9rem; font-weight: 500;
+  animation: descer .25s ease-out;
+}
+.aviso-versao .botao { padding: 6px 14px; }
+@keyframes descer { from { transform: translate(-50%, -20px); opacity: 0; } }
 
 /* ---------------------------------------------------------------- aviso */
 .aviso {

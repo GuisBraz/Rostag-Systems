@@ -114,6 +114,9 @@ const EN = {
   'Comece convidando um líder': 'Start by inviting a leader',
   'Toda tarefa pertence à equipe de um líder. Convide o primeiro líder para começar a criar tarefas.': 'Every task belongs to a leader’s team. Invite the first leader to start creating tasks.',
 
+  // Nova versão
+  'Nova versão disponível ({v}).': 'New version available ({v}).', 'Recarregar': 'Reload', 'Depois': 'Later', 'Atualizando…': 'Updating…',
+
   // Erros
   'Você não tem permissão para isso.': 'You don’t have permission to do that.', 'Algo deu errado.': 'Something went wrong.',
   'No modo demonstração não há cadastro.': 'There is no sign-up in demo mode.'

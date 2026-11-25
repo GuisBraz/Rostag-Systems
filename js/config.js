@@ -24,7 +24,8 @@ const forcarDemo = typeof location !== 'undefined'
   && new URLSearchParams(location.search).has('demo');
 export const MODO_DEMO = !FIREBASE_CONFIG.apiKey || forcarDemo;
 
-export const VERSAO = '0.3.0';
+// A cada publicação, suba a versão aqui E em version.json (o teste confere que batem).
+export const VERSAO = '0.4.0';
 export const LINKS = {
   linkedin: 'https://www.linkedin.com/in/guilherme-santos-66b8162a0',
   portfolio: 'https://guisbraz.github.io/portifolio/'

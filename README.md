@@ -81,6 +81,12 @@ Plano gratuito (Spark) é suficiente.
    o campo `nivel` de `pendente` para `adm` (ou `gerente`). A tela atualiza sozinha.
 7. Daí em diante, a gerência convida as pessoas por link em **Configurações → Equipe**.
 
+## Publicar uma versão nova
+
+1. Suba a versão em `js/config.js` (`VERSAO`) **e** em `version.json` — o `npm test` confere que batem.
+2. Envie para o GitHub (`git push`). Em até 2 minutos, quem estiver com o site aberto
+   vê o aviso **“Nova versão disponível · Recarregar”**, que busca os arquivos novos sem cache.
+
 ## Estrutura
 
 ```
@@ -93,6 +99,8 @@ js/dominio/         regras puras: datas, níveis, visibilidade, indicadores
 js/i18n.js          textos em inglês (o português é a chave)
 js/prefs.js         tema e idioma deste aparelho
 js/ui/              telas: início, tarefas/quadro, projetos, configurações
+js/atualizacao.js   aviso de nova versão (confere version.json)
+img/                ícones do site
 firestore.rules     permissões no banco
 tests/              testes (node --test)
 ```

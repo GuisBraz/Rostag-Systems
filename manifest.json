@@ -1,0 +1,22 @@
+{
+  "name": "Rostag Systems",
+  "short_name": "Rostag Systems",
+  "description": "Planner da equipe: projetos, tarefas e o histórico de tudo num lugar só.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#F7F9FC",
+  "theme_color": "#2453C7",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "img/icone-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "img/icone-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
